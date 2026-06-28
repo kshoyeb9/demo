@@ -1,0 +1,23 @@
+# Counterparty → BU mapping for the CF tracker (Weekly_Report_CF_2026_Final_.xlsx)
+# Edit this file and re-run etl.py after Henry confirms assignments.
+# Format:  counterparty_keyword_lowercase,BU Name
+# The keyword is matched as a substring (case-insensitive) in CF tracker row labels.
+#
+# AR breakdown from MBR (Mar-26):
+#   MCIT $800K → B2B (Ministry of Communications, IT procurement)
+#   Tamkeen $1,533K → Government Schools (confirm with Henry)
+#   Tracks $2,065K → Tracks
+#   Uffoq $513K → Global Non-Saudi (confirm)
+#   Takaful $258K → KSA B2C (confirm)
+counterparty,bu_name
+tracks,Tracks
+olaya,Tracks
+tanmya,Government Schools
+atyab,Government Schools
+maarif,Government Schools
+tamkeen,Government Schools
+uffoq,Global Non-Saudi
+takaful,KSA B2C
+b2b,B2B
+mcit,B2B
+ngos,B2B
