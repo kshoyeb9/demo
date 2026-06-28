@@ -320,7 +320,7 @@ with col_line:
 
 with col_bar:
     bu_rev = fytd_by_bu(FY2526, "revenue", n, bus)
-    sorted_bus = sorted(bu, key=lambda b: bu_rev.get(b, 0))
+    sorted_bus = sorted(bus, key=lambda b: bu_rev.get(b, 0))
 
     fig2 = go.Figure(go.Bar(
         y=sorted_bus,
