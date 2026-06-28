@@ -3,20 +3,18 @@ Run:  streamlit run app.py
 """
 
 import json
-from datetime import date
 from pathlib import Path
 
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import streamlit as st
 
 # ── Brand tokens ──────────────────────────────────────────────────────────────
 DARK_BLUE   = "#11203A"
-DARK_BLUE_D = "#0B1729"
 GREEN       = "#17E4A1"
 GREEN_D     = "#0FB07F"
 ORANGE      = "#FE814F"
 PURPLE      = "#7C5CE1"
-CREAM       = "#F4EEE0"
 CREAM_LIGHT = "#FAF6EC"
 GRAY_DARK   = "#5A6878"
 GRAY_MID    = "#9AA4B0"
@@ -32,65 +30,82 @@ BU_COLORS = {
 }
 BU_ORDER = list(BU_COLORS.keys())
 
+SAR_RATE = 3.75   # 1 USD = 3.75 SAR
+
+# ── Weekly CF data (hardcoded from "Noon Weekly CF Update May 3, 2026" PDF)
+CF_OPENING_SAR = 194_000
+CF_INFLOWS_SAR = {
+    "Tracks Collections": 800_000,
+    "B2B Collections":    4_100_000,
+    "Financing":          7_700_000,
+    "Gov. Grants":        0,
+}
+CF_OUTFLOWS_SAR = {
+    "Payroll & Benefits":    5_800_000,
+    "AP Payments":           3_100_000,
+    "Taxes & Gov. Charges":  3_000_000,
+    "Financing Repayments":  2_600_000,
+}
+
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Noon Academy | Monthly Financials",
     page_icon="🌙",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
 html, body, [class*="css"], .stApp {{
     font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
     background-color: {CREAM_LIGHT};
 }}
-.block-container {{ padding-top: 0.75rem; padding-bottom: 1rem; }}
-section[data-testid="stSidebar"] > div {{
-    background-color: {DARK_BLUE};
-}}
-section[data-testid="stSidebar"] label,
-section[data-testid="stSidebar"] p,
-section[data-testid="stSidebar"] span,
-section[data-testid="stSidebar"] div {{
-    color: rgba(255,255,255,0.85) !important;
-}}
+.block-container {{ padding-top: 1rem; padding-bottom: 1rem; max-width: 1400px; }}
 .kpi-card {{
     background: white;
     border-radius: 10px;
     padding: 14px 18px 12px 18px;
     border-left: 4px solid {GREEN};
     box-shadow: 0 1px 4px rgba(0,0,0,0.07);
-    height: 100%;
+}}
+.kpi-card-dark {{
+    background: {DARK_BLUE};
+    border-radius: 10px;
+    padding: 14px 18px 12px 18px;
+    border-left: 4px solid {GREEN};
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
 }}
 .kpi-label {{
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: {GRAY_DARK};
-    margin-bottom: 5px;
+    font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.07em;
+    color: {GRAY_DARK}; margin-bottom: 4px;
+}}
+.kpi-label-dark {{
+    font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.07em;
+    color: {GRAY_MID}; margin-bottom: 4px;
 }}
 .kpi-value {{
-    font-size: 21px;
-    font-weight: 700;
-    color: {DARK_BLUE};
-    line-height: 1.15;
+    font-size: 22px; font-weight: 700;
+    color: {DARK_BLUE}; line-height: 1.1;
 }}
-.kpi-delta {{ font-size: 11px; font-weight: 500; margin-top: 5px; }}
-.delta-pos {{ color: {GREEN_D}; }}
-.delta-neg {{ color: {ORANGE}; }}
+.kpi-value-dark {{
+    font-size: 22px; font-weight: 700;
+    color: white; line-height: 1.1;
+}}
+.kpi-sub {{
+    font-size: 11px; margin-top: 4px; color: {GRAY_MID};
+}}
 .section-hdr {{
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: {GRAY_MID};
-    margin: 10px 0 4px 0;
-    padding-bottom: 4px;
-    border-bottom: 1px solid {GRAY_LIGHT};
+    font-size: 16px; font-weight: 700;
+    color: {DARK_BLUE}; margin: 20px 0 8px 0;
+    padding-bottom: 6px;
+    border-bottom: 2px solid {GREEN};
+}}
+.chart-note {{
+    font-size: 10px; color: {GRAY_MID}; margin-top: -10px; margin-bottom: 4px;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -101,386 +116,390 @@ section[data-testid="stSidebar"] div {{
 def load_data():
     p = Path("fy_data.json")
     if not p.exists():
-        st.error("fy_data.json not found. Run `python etl.py` to generate it, or place the sample file here.")
+        st.error("fy_data.json not found — run `python etl.py` first.")
         st.stop()
     with open(p) as f:
         return json.load(f)
 
 
-DATA    = load_data()
+DATA   = load_data()
 ALL_BUS = DATA["buses"]
-FY2425  = DATA["fy2425"]
 FY2526  = DATA["fy2526"]
 CASH    = DATA["cash"]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-def fmt_m(val):
-    if abs(val) >= 1_000_000:
-        return f"${val/1_000_000:.1f}M"
-    if abs(val) >= 1_000:
-        return f"${val/1_000:.0f}K"
-    return f"${val:.0f}"
+def fmt(val, unit_mul=1, symbol="$"):
+    v = val * unit_mul
+    if abs(v) >= 1_000_000:
+        return f"{symbol}{v/1_000_000:.1f}M"
+    if abs(v) >= 1_000:
+        return f"{symbol}{v/1_000:.0f}K"
+    return f"{symbol}{v:.0f}"
 
 
-def group_total(fy, field, n, buses):
+def group_total(field, n):
     return sum(
         m["by_bu"].get(bu, {}).get(field, 0)
-        for m in fy[:n]
-        for bu in buses
+        for m in FY2526[:n]
+        for bu in ALL_BUS
     )
 
 
-def monthly_group(fy, field, buses):
-    return [
-        sum(m["by_bu"].get(bu, {}).get(field, 0) for bu in buses)
-        for m in fy
-    ]
-
-
-def fytd_by_bu(fy, field, n, buses):
+def monthly_by_bu(field):
     return {
-        bu: sum(m["by_bu"].get(bu, {}).get(field, 0) for m in fy[:n])
-        for bu in buses
+        bu: [m["by_bu"].get(bu, {}).get(field, 0) for m in FY2526]
+        for bu in BU_ORDER if bu in ALL_BUS
     }
 
 
-def base_layout(title="", height=290):
+def monthly_total(field):
+    return [
+        sum(m["by_bu"].get(bu, {}).get(field, 0) for bu in ALL_BUS)
+        for m in FY2526
+    ]
+
+
+def pct_series(num_field, den_field):
+    result = []
+    for m in FY2526:
+        num = sum(m["by_bu"].get(bu, {}).get(num_field, 0) for bu in ALL_BUS)
+        den = sum(m["by_bu"].get(bu, {}).get(den_field, 0) for bu in ALL_BUS)
+        result.append(num / den * 100 if den else 0)
+    return result
+
+
+def chart_layout(height=300):
     return dict(
-        title=dict(
-            text=title,
-            font=dict(size=12, color=GRAY_DARK, family="IBM Plex Sans"),
-            x=0, pad=dict(l=0, t=0),
-        ),
         height=height,
-        margin=dict(l=4, r=12, t=32 if title else 8, b=30),
+        margin=dict(l=8, r=8, t=10, b=30),
         paper_bgcolor="white",
         plot_bgcolor="white",
         font=dict(family="IBM Plex Sans", color=GRAY_DARK, size=11),
-        legend=dict(orientation="h", x=0, y=-0.14, font=dict(size=10)),
-        xaxis=dict(gridcolor=GRAY_LIGHT, showgrid=True, zeroline=False, tickfont=dict(size=10)),
+        legend=dict(orientation="h", x=0, y=-0.18, font=dict(size=10)),
+        xaxis=dict(gridcolor=GRAY_LIGHT, showgrid=False, zeroline=False, tickfont=dict(size=10)),
         yaxis=dict(gridcolor=GRAY_LIGHT, showgrid=True, zeroline=False, tickfont=dict(size=10)),
+        showlegend=True,
     )
-
-
-# ── Sidebar ───────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown(f"""
-    <div style="padding:6px 0 18px 0; border-bottom:1px solid rgba(255,255,255,0.12); margin-bottom:18px;">
-      <span style="font-size:24px; font-weight:800; color:{GREEN}; letter-spacing:-0.02em;">noon</span>
-      <span style="font-size:11px; color:{GRAY_MID}; display:block; margin-top:2px;">
-        Academy · Monthly Financials
-      </span>
-    </div>
-    """, unsafe_allow_html=True)
-
-    today = date.today()
-    if date(2025, 7, 1) <= today <= date(2026, 6, 30):
-        default_n = (today.month - 7) % 12 + 1
-    else:
-        default_n = 12
-
-    months_elapsed = st.slider(
-        "Months elapsed · FY 2025/26",
-        min_value=1, max_value=12, value=default_n,
-        help="Slide to set how many FY25/26 months are shown (1 = July 2025 only)",
-    )
-    month_end_label = FY2526[months_elapsed - 1]["label"]
-    st.caption(f"Jul-25 → {month_end_label}")
-
-    st.markdown("<div style='height:12px'/>", unsafe_allow_html=True)
-
-    selected_bus = st.multiselect(
-        "Business Units",
-        options=ALL_BUS,
-        default=ALL_BUS,
-    )
-    if not selected_bus:
-        selected_bus = ALL_BUS
-
-    st.markdown(f"""
-    <div style="margin-top:24px; font-size:10px; color:{GRAY_MID}; line-height:1.7;">
-      Generated: {DATA['meta']['generated_at']}<br>
-      <em>{DATA['meta']['source']}</em>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-# ── Derived KPIs ──────────────────────────────────────────────────────────────
-n   = months_elapsed
-bus = selected_bus
-
-rev_26  = group_total(FY2526, "revenue",               n, bus)
-gp_26   = group_total(FY2526, "gross_profit",          n, bus)
-cm_26   = group_total(FY2526, "contribution_margin",   n, bus)
-ebi_26  = group_total(FY2526, "ebitda",                n, bus)
-rev_25  = group_total(FY2425, "revenue",               n, bus)
-ebi_25  = group_total(FY2425, "ebitda",                n, bus)
-
-gm_pct  = gp_26  / rev_26 * 100 if rev_26 else 0
-cm_pct  = cm_26  / rev_26 * 100 if rev_26 else 0
-ebi_pct = ebi_26 / rev_26 * 100 if rev_26 else 0
-
-rev_yoy  = (rev_26 - rev_25) / rev_25 * 100 if rev_25 else 0
-ebi_yoy  = (ebi_26 - ebi_25) / abs(ebi_25) * 100 if ebi_25 else 0
-
-cash_slice = CASH[:n]
-last_cash  = cash_slice[-1]["eom_cash"] if cash_slice else 0
-if len(cash_slice) >= 2:
-    recent = cash_slice[max(0, len(cash_slice) - 3):]
-    burns  = [recent[i]["eom_cash"] - recent[i-1]["eom_cash"] for i in range(1, len(recent))]
-    avg_burn = sum(burns) / len(burns) if burns else 0
-    runway = round(-last_cash / avg_burn, 1) if avg_burn < 0 else None
-else:
-    runway = None
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown(f"""
-<div style="background:{DARK_BLUE}; border-radius:12px; padding:14px 22px 12px 22px;
-            margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
+<div style="background:{DARK_BLUE}; border-radius:12px; padding:14px 24px 12px 24px;
+            margin-bottom:16px; display:flex; align-items:center; justify-content:space-between;">
   <div>
-    <span style="font-size:19px; font-weight:700; color:white; letter-spacing:-0.01em;">
+    <span style="font-size:20px; font-weight:700; color:white;">
       Noon Academy — Monthly Financials
     </span>
     <span style="font-size:11px; color:{GRAY_MID}; display:block; margin-top:3px;">
-      FY 2025/26 · {n} month{"s" if n != 1 else ""} elapsed
-      &nbsp;|&nbsp; YoY vs FY 2024/25 &nbsp;|&nbsp; USD
+      FY 2025/26 · Internal Management Dashboard · Confidential
     </span>
   </div>
-  <span style="font-size:28px; font-weight:800; color:{GREEN}; letter-spacing:-0.03em;">noon</span>
+  <span style="font-size:30px; font-weight:800; color:{GREEN}; letter-spacing:-0.03em;">noon</span>
 </div>
 """, unsafe_allow_html=True)
 
+# Currency toggle
+col_toggle, col_month = st.columns([2, 5])
+with col_toggle:
+    currency = st.radio("Currency", ["USD", "SAR"], horizontal=True, label_visibility="collapsed")
+mul = SAR_RATE if currency == "SAR" else 1.0
+sym = "SAR " if currency == "SAR" else "$"
 
-# ── KPI Strip ─────────────────────────────────────────────────────────────────
-def kpi(label, value, delta=None, higher_is_better=True, accent=GREEN):
-    if delta is not None:
-        good = (delta >= 0) == higher_is_better
-        cls  = "delta-pos" if good else "delta-neg"
-        sym  = "▲" if delta > 0 else "▼"
-        dhtml = f'<div class="kpi-delta {cls}">{sym} {abs(delta):.1f}% YoY</div>'
-    else:
-        dhtml = ""
+with col_month:
+    n = st.slider("Months elapsed (FY 2025/26)", 1, 12, 9,
+                  help="Jul-25 = 1, Mar-26 = 9, Jun-26 = 12")
+    st.caption(f"Jul-25 → {FY2526[n-1]['label']}")
+
+month_labels = [m["label"] for m in FY2526]
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 1 — FINANCIAL PERFORMANCE REVIEW
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-hdr">Financial Performance Review</div>', unsafe_allow_html=True)
+
+# ── 7 KPI boxes ───────────────────────────────────────────────────────────────
+rev_ytd   = group_total("revenue", n) * mul
+gp_ytd    = group_total("gross_profit", n) * mul
+cm_ytd    = group_total("contribution_margin", n) * mul
+ebi_ytd   = group_total("ebitda", n) * mul
+gm_pct    = (group_total("gross_profit", n) / group_total("revenue", n) * 100) if group_total("revenue", n) else 0
+cm_pct_v  = (group_total("contribution_margin", n) / group_total("revenue", n) * 100) if group_total("revenue", n) else 0
+ebi_pct_v = (group_total("ebitda", n) / group_total("revenue", n) * 100) if group_total("revenue", n) else 0
+
+k1, k2, k3, k4, k5, k6, k7 = st.columns(7)
+
+def kpi_html(label, value, sub=None, accent=GREEN, dark=False):
+    card_cls = "kpi-card-dark" if dark else "kpi-card"
+    lbl_cls  = "kpi-label-dark" if dark else "kpi-label"
+    val_cls  = "kpi-value-dark" if dark else "kpi-value"
+    sub_html = f'<div class="kpi-sub">{sub}</div>' if sub else ""
     return (
-        f'<div class="kpi-card" style="border-left-color:{accent}">'
-        f'<div class="kpi-label">{label}</div>'
-        f'<div class="kpi-value">{value}</div>'
-        f'{dhtml}</div>'
+        f'<div class="{card_cls}" style="border-left-color:{accent}">'
+        f'<div class="{lbl_cls}">{label}</div>'
+        f'<div class="{val_cls}">{value}</div>'
+        f'{sub_html}</div>'
     )
 
+k1.markdown(kpi_html("Revenue YTD",          fmt(rev_ytd, symbol=sym),  f"as of {FY2526[n-1]['label']}"), unsafe_allow_html=True)
+k2.markdown(kpi_html("% Budget Achieved",    "—",                        "Budget TBD",        accent=GRAY_MID), unsafe_allow_html=True)
+k3.markdown(kpi_html("Gross Profit YTD",     fmt(gp_ytd, symbol=sym),   f"GM {gm_pct:.1f}%", accent=GREEN_D), unsafe_allow_html=True)
+k4.markdown(kpi_html("Contribution Profit",  fmt(cm_ytd, symbol=sym),   f"CM {cm_pct_v:.1f}%", accent=PURPLE), unsafe_allow_html=True)
+k5.markdown(kpi_html("EBITDA YTD",           fmt(ebi_ytd, symbol=sym),  None,                accent=ORANGE), unsafe_allow_html=True)
+k6.markdown(kpi_html("EBITDA %",             f"{ebi_pct_v:.1f}%",       None,                accent=ORANGE), unsafe_allow_html=True)
+k7.markdown(kpi_html("Headcount",            "—",                        "Data pending",      accent=GRAY_MID), unsafe_allow_html=True)
 
-runway_str = f"{runway} mo" if runway else "—"
+st.markdown("<div style='height:8px'/>", unsafe_allow_html=True)
 
-c1, c2, c3, c4, c5, c6 = st.columns(6)
-c1.markdown(kpi("Revenue · FYTD",       fmt_m(rev_26),         rev_yoy,  True,  GREEN),   unsafe_allow_html=True)
-c2.markdown(kpi("Gross Margin",          f"{gm_pct:.1f}%",      None,     True,  GREEN_D), unsafe_allow_html=True)
-c3.markdown(kpi("Contribution Margin",   f"{cm_pct:.1f}%",      None,     True,  PURPLE),  unsafe_allow_html=True)
-c4.markdown(kpi("EBITDA Margin",         f"{ebi_pct:.1f}%",     None,     True,  ORANGE),  unsafe_allow_html=True)
-c5.markdown(kpi("EBITDA · FYTD",         fmt_m(ebi_26),         ebi_yoy,  False, ORANGE),  unsafe_allow_html=True)
-c6.markdown(kpi("Cash · Runway",         f"{fmt_m(last_cash)} · {runway_str}", None, True, "#4FC8FE"), unsafe_allow_html=True)
+# ── Chart 1: Revenue by BU — stacked bar ─────────────────────────────────────
+active_bus = [bu for bu in BU_ORDER if bu in ALL_BUS]
+rev_by_bu  = monthly_by_bu("revenue")
+rev_totals = [sum(rev_by_bu.get(bu, [0]*12)[i] * mul for bu in active_bus) for i in range(12)]
 
-st.markdown("<div style='height:6px'/>", unsafe_allow_html=True)
-
-
-# ── Row 1 · Revenue ───────────────────────────────────────────────────────────
-st.markdown('<div class="section-hdr">Revenue</div>', unsafe_allow_html=True)
-col_line, col_bar = st.columns([3, 2])
-
-month_labels = [m["label"] for m in FY2425]  # Jul–Jun axis
-
-with col_line:
-    rev25_mo = monthly_group(FY2425, "revenue", bus)
-    rev26_mo = monthly_group(FY2526, "revenue", bus)
-
-    cum25 = [sum(rev25_mo[:i+1]) / 1e6 for i in range(12)]
-    cum26 = [sum(rev26_mo[:i+1]) / 1e6 if i < n else None for i in range(12)]
-    cum26_x = month_labels[:n]
-    cum26_y = [v for v in cum26 if v is not None]
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=month_labels, y=cum25,
-        name="FY 2024/25", mode="lines",
-        line=dict(color=GRAY_MID, width=2, dash="dot"),
-        hovertemplate="%{x}: $%{y:.2f}M<extra>FY24/25</extra>",
+fig1 = go.Figure()
+for bu in active_bus:
+    vals = [v * mul for v in rev_by_bu.get(bu, [0]*12)]
+    fig1.add_trace(go.Bar(
+        name=bu, x=month_labels, y=vals,
+        marker_color=BU_COLORS.get(bu, GRAY_MID),
+        text=[f"{sym}{v/1e6:.1f}M" if v > 0 else "" for v in vals],
+        textposition="inside",
+        textfont=dict(size=9, color="white"),
+        hovertemplate=f"{bu}: {sym}%{{y:,.0f}}<extra></extra>",
     ))
-    fig.add_trace(go.Scatter(
-        x=cum26_x, y=cum26_y,
-        name="FY 2025/26", mode="lines+markers",
-        line=dict(color=GREEN, width=3),
-        marker=dict(size=6, color=GREEN),
-        hovertemplate="%{x}: $%{y:.2f}M<extra>FY25/26</extra>",
-    ))
-    lo = base_layout("Cumulative Revenue · FYTD ($M)")
-    lo["yaxis"]["tickprefix"] = "$"
-    lo["yaxis"]["ticksuffix"] = "M"
-    fig.update_layout(**lo)
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-with col_bar:
-    bu_rev = fytd_by_bu(FY2526, "revenue", n, bus)
-    sorted_bus = sorted(bus, key=lambda b: bu_rev.get(b, 0))
+# Total annotations at top of each bar
+for i, (label, total) in enumerate(zip(month_labels, rev_totals)):
+    fig1.add_annotation(
+        x=label, y=total,
+        text=f"<b>{sym}{total/1e6:.1f}M</b>",
+        showarrow=False, yanchor="bottom",
+        font=dict(size=9, color=DARK_BLUE, family="IBM Plex Sans"),
+        yshift=2,
+    )
 
-    fig2 = go.Figure(go.Bar(
-        y=sorted_bus,
-        x=[bu_rev.get(b, 0) / 1e6 for b in sorted_bus],
+lo1 = chart_layout(height=310)
+lo1["barmode"] = "stack"
+lo1["yaxis"]["tickprefix"] = sym
+lo1["yaxis"]["showgrid"] = True
+lo1["xaxis"]["showgrid"] = False
+lo1["legend"] = dict(orientation="h", x=0, y=-0.15, font=dict(size=10))
+fig1.update_layout(**lo1)
+st.plotly_chart(fig1, use_container_width=True, config={"displayModeBar": False})
+st.markdown('<div class="chart-note">Revenue by Business Unit — monthly stacked bars with data labels</div>', unsafe_allow_html=True)
+
+
+# ── Chart 2: Gross Profit bar + GM% line ─────────────────────────────────────
+gp_monthly = [v * mul for v in monthly_total("gross_profit")]
+gm_pct_mo  = pct_series("gross_profit", "revenue")
+
+fig2 = make_subplots(specs=[[{"secondary_y": True}]])
+fig2.add_trace(go.Bar(
+    name="Gross Profit", x=month_labels, y=gp_monthly,
+    marker_color=GREEN_D, opacity=0.85,
+    hovertemplate=f"Gross Profit: {sym}%{{y:,.0f}}<extra></extra>",
+), secondary_y=False)
+fig2.add_trace(go.Scatter(
+    name="GM %", x=month_labels, y=gm_pct_mo,
+    mode="lines+markers",
+    line=dict(color=DARK_BLUE, width=2),
+    marker=dict(size=5, color=DARK_BLUE),
+    hovertemplate="GM%%: %{y:.1f}%%<extra></extra>",
+), secondary_y=True)
+
+lo2 = chart_layout(height=280)
+lo2.pop("xaxis", None); lo2.pop("yaxis", None)
+fig2.update_layout(**lo2)
+fig2.update_yaxes(title_text=f"Gross Profit ({currency})", tickprefix=sym, gridcolor=GRAY_LIGHT, secondary_y=False)
+fig2.update_yaxes(title_text="GM %", ticksuffix="%", showgrid=False, secondary_y=True)
+fig2.update_xaxes(showgrid=False, tickfont=dict(size=10))
+st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
+st.markdown('<div class="chart-note">Gross Profit (bar) and Gross Margin % (line, right axis)</div>', unsafe_allow_html=True)
+
+
+# ── Chart 3: Contribution Profit bar + CM% line ───────────────────────────────
+cm_monthly = [v * mul for v in monthly_total("contribution_margin")]
+cm_pct_mo  = pct_series("contribution_margin", "revenue")
+
+fig3 = make_subplots(specs=[[{"secondary_y": True}]])
+fig3.add_trace(go.Bar(
+    name="Contribution Profit", x=month_labels, y=cm_monthly,
+    marker_color=PURPLE, opacity=0.85,
+    hovertemplate=f"Contribution Profit: {sym}%{{y:,.0f}}<extra></extra>",
+), secondary_y=False)
+fig3.add_trace(go.Scatter(
+    name="CM %", x=month_labels, y=cm_pct_mo,
+    mode="lines+markers",
+    line=dict(color=DARK_BLUE, width=2),
+    marker=dict(size=5, color=DARK_BLUE),
+    hovertemplate="CM%%: %{y:.1f}%%<extra></extra>",
+), secondary_y=True)
+
+lo3 = chart_layout(height=280)
+lo3.pop("xaxis", None); lo3.pop("yaxis", None)
+fig3.update_layout(**lo3)
+fig3.update_yaxes(title_text=f"Contribution Profit ({currency})", tickprefix=sym, gridcolor=GRAY_LIGHT, secondary_y=False)
+fig3.update_yaxes(title_text="CM %", ticksuffix="%", showgrid=False, secondary_y=True)
+fig3.update_xaxes(showgrid=False, tickfont=dict(size=10))
+st.plotly_chart(fig3, use_container_width=True, config={"displayModeBar": False})
+st.markdown('<div class="chart-note">Contribution Profit (bar) and Contribution Margin % (line, right axis)</div>', unsafe_allow_html=True)
+
+
+# ── Chart 4: EBITDA bar (green/orange conditional) + EBITDA% line ─────────────
+ebi_monthly = [v * mul for v in monthly_total("ebitda")]
+ebi_pct_mo  = pct_series("ebitda", "revenue")
+ebi_colors  = [GREEN if v >= 0 else ORANGE for v in ebi_monthly]
+
+fig4 = make_subplots(specs=[[{"secondary_y": True}]])
+fig4.add_trace(go.Bar(
+    name="EBITDA", x=month_labels, y=ebi_monthly,
+    marker_color=ebi_colors, opacity=0.88,
+    hovertemplate=f"EBITDA: {sym}%{{y:,.0f}}<extra></extra>",
+), secondary_y=False)
+fig4.add_trace(go.Scatter(
+    name="EBITDA %", x=month_labels, y=ebi_pct_mo,
+    mode="lines+markers",
+    line=dict(color=DARK_BLUE, width=2),
+    marker=dict(size=5, color=DARK_BLUE),
+    hovertemplate="EBITDA%%: %{y:.1f}%%<extra></extra>",
+), secondary_y=True)
+# Zero reference line
+fig4.add_shape(type="line", x0=month_labels[0], x1=month_labels[-1], y0=0, y1=0,
+               line=dict(color=GRAY_MID, width=1, dash="dot"), layer="below")
+
+lo4 = chart_layout(height=280)
+lo4.pop("xaxis", None); lo4.pop("yaxis", None)
+fig4.update_layout(**lo4)
+fig4.update_yaxes(title_text=f"EBITDA ({currency})", tickprefix=sym, gridcolor=GRAY_LIGHT, secondary_y=False)
+fig4.update_yaxes(title_text="EBITDA %", ticksuffix="%", showgrid=False, secondary_y=True)
+fig4.update_xaxes(showgrid=False, tickfont=dict(size=10))
+st.plotly_chart(fig4, use_container_width=True, config={"displayModeBar": False})
+st.markdown('<div class="chart-note">EBITDA (green = positive, orange = negative) and EBITDA Margin % (line, right axis)</div>', unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 2 — CASH POSITION
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-hdr">Cash Position</div>', unsafe_allow_html=True)
+
+# ── 3 KPI boxes ───────────────────────────────────────────────────────────────
+cash_slice  = CASH[:n]
+last_cash   = cash_slice[-1]["eom_cash"] if cash_slice else 0
+
+if len(cash_slice) >= 2:
+    recent = cash_slice[max(0, len(cash_slice) - 3):]
+    burns  = [recent[i]["eom_cash"] - recent[i-1]["eom_cash"] for i in range(1, len(recent))]
+    avg_burn = sum(burns) / len(burns) if burns else 0
+    runway_mo = round(-last_cash / avg_burn, 1) if avg_burn < 0 else None
+else:
+    avg_burn  = 0
+    runway_mo = None
+
+cash_display = last_cash * mul
+burn_display = avg_burn * mul
+runway_str   = f"{runway_mo} months" if runway_mo else "—"
+
+ck1, ck2, ck3, _sp = st.columns([2, 2, 2, 1])
+ck1.markdown(kpi_html("Current Cash Balance", fmt(cash_display, symbol=sym), f"as of {FY2526[n-1]['label']}", accent=GREEN, dark=True), unsafe_allow_html=True)
+ck2.markdown(kpi_html("Avg Monthly Cash Burn", fmt(burn_display, symbol=sym), "trailing 3 months", accent=ORANGE, dark=True), unsafe_allow_html=True)
+ck3.markdown(kpi_html("Runway", runway_str, "at current burn rate", accent="#4FC8FE", dark=True), unsafe_allow_html=True)
+
+st.markdown("<div style='height:12px'/>", unsafe_allow_html=True)
+
+# ── Next 4 weeks: Inflows vs Outflows (from CF weekly PDF) ───────────────────
+cf_mul = SAR_RATE if currency == "USD" else 1.0
+# CF data is in SAR → convert to USD (÷3.75) if USD selected, keep SAR if SAR selected
+inflow_vals  = [v / SAR_RATE * mul for v in CF_INFLOWS_SAR.values()]
+outflow_vals = [v / SAR_RATE * mul for v in CF_OUTFLOWS_SAR.values()]
+inflow_cats  = list(CF_INFLOWS_SAR.keys())
+outflow_cats = list(CF_OUTFLOWS_SAR.keys())
+
+st.markdown(f'<div style="font-size:13px; font-weight:600; color:{DARK_BLUE}; margin-bottom:6px;">Next 4 Weeks Cash Flow &nbsp;<span style="font-size:10px; color:{GRAY_MID}; font-weight:400;">As of 03 May 2026 · Source: Noon Weekly CF Update</span></div>', unsafe_allow_html=True)
+
+col_in, col_out = st.columns(2)
+
+with col_in:
+    fig_in = go.Figure(go.Bar(
+        y=inflow_cats, x=inflow_vals,
         orientation="h",
-        marker_color=[BU_COLORS.get(b, GRAY_MID) for b in sorted_bus],
-        text=[fmt_m(bu_rev.get(b, 0)) for b in sorted_bus],
+        marker_color=GREEN, opacity=0.85,
+        text=[fmt(v, symbol=sym) for v in inflow_vals],
         textposition="outside",
-        textfont=dict(size=10, color=GRAY_DARK),
-        hovertemplate="%{y}: $%{x:.2f}M<extra></extra>",
+        textfont=dict(size=10, color=DARK_BLUE),
+        hovertemplate="%{y}: " + sym + "%{x:,.0f}<extra></extra>",
     ))
-    lo2 = base_layout("Revenue by BU · FYTD ($M)")
-    lo2["xaxis"]["tickprefix"] = "$"
-    lo2["xaxis"]["ticksuffix"] = "M"
-    lo2["margin"]["r"] = 55
-    lo2["showlegend"] = False
-    fig2.update_layout(**lo2)
-    st.plotly_chart(fig2, use_container_width=True, config={"displayModeBar": False})
+    lo_in = chart_layout(height=220)
+    lo_in["showlegend"] = False
+    lo_in["xaxis"]["tickprefix"] = sym
+    lo_in["margin"] = dict(l=8, r=60, t=30, b=20)
+    lo_in["title"] = dict(text="<b>Inflows</b>", font=dict(size=12, color=GREEN_D), x=0)
+    fig_in.update_layout(**lo_in)
+    st.plotly_chart(fig_in, use_container_width=True, config={"displayModeBar": False})
 
-
-# ── Row 2 · Margins ───────────────────────────────────────────────────────────
-st.markdown('<div class="section-hdr">Margins</div>', unsafe_allow_html=True)
-col_tbl, col_trend = st.columns([2, 3])
-
-with col_tbl:
-    bus_rows = [b for b in BU_ORDER if b in bus]
-    gm_vals, cm_vals, eb_vals = [], [], []
-    for b in bus_rows:
-        rv = sum(m["by_bu"].get(b, {}).get("revenue", 0)             for m in FY2526[:n])
-        gp = sum(m["by_bu"].get(b, {}).get("gross_profit", 0)        for m in FY2526[:n])
-        cm = sum(m["by_bu"].get(b, {}).get("contribution_margin", 0) for m in FY2526[:n])
-        eb = sum(m["by_bu"].get(b, {}).get("ebitda", 0)              for m in FY2526[:n])
-        gm_vals.append(gp / rv * 100 if rv else 0)
-        cm_vals.append(cm / rv * 100 if rv else 0)
-        eb_vals.append(eb / rv * 100 if rv else 0)
-
-    def heat(val, lo=-50, hi=70):
-        t = max(0.0, min(1.0, (val - lo) / (hi - lo)))
-        r = int(255 * (1 - t) + 23  * t)
-        g = int(80  * (1 - t) + 228 * t)
-        bv = int(80  * (1 - t) + 161 * t)
-        return f"rgba({r},{g},{bv},0.55)"
-
-    fig3 = go.Figure(go.Table(
-        header=dict(
-            values=["<b>Business Unit</b>", "<b>GM %</b>", "<b>CM %</b>", "<b>EBITDA %</b>"],
-            fill_color=DARK_BLUE,
-            font=dict(color="white", size=11, family="IBM Plex Sans"),
-            align=["left", "center", "center", "center"],
-            height=30,
-        ),
-        cells=dict(
-            values=[
-                bus_rows,
-                [f"{v:.1f}%" for v in gm_vals],
-                [f"{v:.1f}%" for v in cm_vals],
-                [f"{v:.1f}%" for v in eb_vals],
-            ],
-            fill_color=[
-                [CREAM_LIGHT] * len(bus_rows),
-                [heat(v) for v in gm_vals],
-                [heat(v) for v in cm_vals],
-                [heat(v) for v in eb_vals],
-            ],
-            font=dict(color=DARK_BLUE, size=11, family="IBM Plex Sans"),
-            align=["left", "center", "center", "center"],
-            height=27,
-        ),
+with col_out:
+    fig_out = go.Figure(go.Bar(
+        y=outflow_cats, x=outflow_vals,
+        orientation="h",
+        marker_color=ORANGE, opacity=0.85,
+        text=[fmt(v, symbol=sym) for v in outflow_vals],
+        textposition="outside",
+        textfont=dict(size=10, color=DARK_BLUE),
+        hovertemplate="%{y}: " + sym + "%{x:,.0f}<extra></extra>",
     ))
-    fig3.update_layout(
-        height=260, margin=dict(l=0, r=0, t=0, b=0),
-        paper_bgcolor="white",
-    )
-    st.plotly_chart(fig3, use_container_width=True, config={"displayModeBar": False})
+    lo_out = chart_layout(height=220)
+    lo_out["showlegend"] = False
+    lo_out["xaxis"]["tickprefix"] = sym
+    lo_out["margin"] = dict(l=8, r=60, t=30, b=20)
+    lo_out["title"] = dict(text="<b>Outflows</b>", font=dict(size=12, color=ORANGE), x=0)
+    fig_out.update_layout(**lo_out)
+    st.plotly_chart(fig_out, use_container_width=True, config={"displayModeBar": False})
 
-with col_trend:
-    labels_26n = [m["label"] for m in FY2526[:n]]
-    gm_t, cm_t, eb_t = [], [], []
-    for m in FY2526[:n]:
-        rv = sum(m["by_bu"].get(b, {}).get("revenue", 0)             for b in bus)
-        gp = sum(m["by_bu"].get(b, {}).get("gross_profit", 0)        for b in bus)
-        cm = sum(m["by_bu"].get(b, {}).get("contribution_margin", 0) for b in bus)
-        eb = sum(m["by_bu"].get(b, {}).get("ebitda", 0)              for b in bus)
-        gm_t.append(gp / rv * 100 if rv else 0)
-        cm_t.append(cm / rv * 100 if rv else 0)
-        eb_t.append(eb / rv * 100 if rv else 0)
+# ── Cash Collection vs Invoiced ───────────────────────────────────────────────
+st.markdown(f'<div style="font-size:13px; font-weight:600; color:{DARK_BLUE}; margin-bottom:6px;">Cash Collection vs. Invoiced &nbsp;<span style="font-size:10px; color:{GRAY_MID}; font-weight:400;">Schools + B2B billing files</span></div>', unsafe_allow_html=True)
 
-    fig4 = go.Figure()
-    for vals, name, color in [(gm_t, "GM %", GREEN), (cm_t, "CM %", PURPLE), (eb_t, "EBITDA %", ORANGE)]:
-        fig4.add_trace(go.Scatter(
-            x=labels_26n, y=vals, name=name, mode="lines+markers",
-            line=dict(color=color, width=2),
-            marker=dict(size=5, color=color),
-            hovertemplate=f"%{{x}}: %{{y:.1f}}%<extra>{name}</extra>",
-        ))
-    if labels_26n:
-        fig4.add_shape(type="line",
-            x0=labels_26n[0], x1=labels_26n[-1], y0=0, y1=0,
-            line=dict(color=GRAY_LIGHT, width=1, dash="dot"),
-        )
-    lo4 = base_layout("Group Margin Trends · FY 2025/26", height=260)
-    lo4["yaxis"]["ticksuffix"] = "%"
-    fig4.update_layout(**lo4)
-    st.plotly_chart(fig4, use_container_width=True, config={"displayModeBar": False})
+cash_labels   = [m["label"]     for m in cash_slice]
+invoiced_vals = [m["invoiced"]  * mul for m in cash_slice]
+collected_vals= [m["collected"] * mul for m in cash_slice]
+coll_rate     = [
+    (c / i * 100) if i > 0 else 0
+    for c, i in zip(collected_vals, invoiced_vals)
+]
 
+fig5 = make_subplots(specs=[[{"secondary_y": True}]])
+fig5.add_trace(go.Bar(
+    name="Invoiced", x=cash_labels, y=invoiced_vals,
+    marker_color=PURPLE, opacity=0.80,
+    hovertemplate=f"Invoiced: {sym}%{{y:,.0f}}<extra></extra>",
+), secondary_y=False)
+fig5.add_trace(go.Bar(
+    name="Collected", x=cash_labels, y=collected_vals,
+    marker_color=GREEN, opacity=0.88,
+    hovertemplate=f"Collected: {sym}%{{y:,.0f}}<extra></extra>",
+), secondary_y=False)
+fig5.add_trace(go.Scatter(
+    name="Collection Rate %", x=cash_labels, y=coll_rate,
+    mode="lines+markers",
+    line=dict(color=ORANGE, width=2),
+    marker=dict(size=5, color=ORANGE),
+    hovertemplate="Collection Rate: %{y:.1f}%%<extra></extra>",
+), secondary_y=True)
 
-# ── Row 3 · Cash ──────────────────────────────────────────────────────────────
-st.markdown('<div class="section-hdr">Cash</div>', unsafe_allow_html=True)
-col_bill, col_cash = st.columns([3, 2])
+lo5 = chart_layout(height=300)
+lo5["barmode"] = "group"
+lo5.pop("xaxis", None); lo5.pop("yaxis", None)
+fig5.update_layout(**lo5)
+fig5.update_yaxes(title_text=f"Amount ({currency})", tickprefix=sym, gridcolor=GRAY_LIGHT, secondary_y=False)
+fig5.update_yaxes(title_text="Collection Rate %", ticksuffix="%", showgrid=False, range=[0, 120], secondary_y=True)
+fig5.update_xaxes(showgrid=False, tickfont=dict(size=10))
+st.plotly_chart(fig5, use_container_width=True, config={"displayModeBar": False})
 
-cash_labels    = [m["label"]     for m in cash_slice]
-invoiced_vals  = [m["invoiced"]  / 1e6 for m in cash_slice]
-collected_vals = [m["collected"] / 1e6 for m in cash_slice]
-eom_vals       = [m["eom_cash"] / 1e6 for m in cash_slice]
-
-with col_bill:
-    fig5 = go.Figure()
-    fig5.add_trace(go.Bar(name="Invoiced",  x=cash_labels, y=invoiced_vals,
-                          marker_color=PURPLE, opacity=0.82,
-                          hovertemplate="%{x}: $%{y:.2f}M<extra>Invoiced</extra>"))
-    fig5.add_trace(go.Bar(name="Collected", x=cash_labels, y=collected_vals,
-                          marker_color=GREEN, opacity=0.90,
-                          hovertemplate="%{x}: $%{y:.2f}M<extra>Collected</extra>"))
-    lo5 = base_layout("Invoiced vs Collected ($M)", height=240)
-    lo5["barmode"] = "group"
-    lo5["yaxis"]["tickprefix"] = "$"
-    lo5["yaxis"]["ticksuffix"] = "M"
-    fig5.update_layout(**lo5)
-    if DATA.get("meta", {}).get("billing_note"):
-        st.caption(DATA["meta"]["billing_note"])
-    st.plotly_chart(fig5, use_container_width=True, config={"displayModeBar": False})
-
-with col_cash:
-    fig6 = go.Figure()
-    fig6.add_trace(go.Scatter(
-        x=cash_labels, y=eom_vals,
-        name="EoM Cash", mode="lines+markers",
-        line=dict(color="#4FC8FE", width=3),
-        marker=dict(size=6, color="#4FC8FE"),
-        fill="tozeroy", fillcolor="rgba(79,200,254,0.10)",
-        hovertemplate="%{x}: $%{y:.2f}M<extra>EoM Cash</extra>",
-    ))
-    if runway and cash_labels:
-        fig6.add_annotation(
-            x=cash_labels[-1], y=eom_vals[-1],
-            text=f"  {runway} mo runway",
-            showarrow=False, xanchor="left",
-            font=dict(color=ORANGE, size=10, family="IBM Plex Sans"),
-        )
-    lo6 = base_layout("Cash Position ($M)", height=240)
-    lo6["yaxis"]["tickprefix"] = "$"
-    lo6["yaxis"]["ticksuffix"] = "M"
-    lo6["showlegend"] = False
-    fig6.update_layout(**lo6)
-    st.plotly_chart(fig6, use_container_width=True, config={"displayModeBar": False})
+if DATA.get("meta", {}).get("billing_note"):
+    st.caption(DATA["meta"]["billing_note"])
 
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown(f"""
-<hr style="border:none; border-top:1px solid {GRAY_LIGHT}; margin:8px 0 4px 0;">
+<hr style="border:none; border-top:1px solid {GRAY_LIGHT}; margin:16px 0 4px 0;">
 <div style="font-size:10px; color:{GRAY_MID}; text-align:center; padding-bottom:6px;">
   Noon Academy · Internal Management Dashboard · Confidential
   &nbsp;|&nbsp; Data as of {DATA['meta']['generated_at']}
