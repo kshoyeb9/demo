@@ -1,0 +1,751 @@
+<!doctype html><html><head><!-- frame-runtime --><script>window.__FRAME_PREAMBLE={"v":1,"capabilities":{"artifact":"artifact.EF7sW8YL.js","assets":"assets.8Gk803W0.js","comments":"comments.vw5vQdGA.js","db":"db.h-3sndFg.js","downloads":"downloads.C3GSvEDP.js","embed":"embed.CxGAyc-v.js","mcp":"mcp.Bvma3qD7.js","network":"network.B5UA9Su4.js","notifications":"notifications.ssU4jy7G.js","permissions":"permissions.BNySkLV5.js","room":"room.VSdFwTE9.js","sample":"sample.BW2Uysoh.js","self":"artifact.EF7sW8YL.js","user":"user.BpKav-Rf.js"},"transforms":"_transforms.DSB5x63f.js","comments":"_comments.C6E0cR5g.js","translate":"_translate.5HCW4BJh.js"}</script><script>(function(){"use strict";var te=["light","dark","system"],re=/^[A-Za-z0-9_-]{1,64}$/,$=/^[a-zA-Z_:][a-zA-Z0-9_:.-]{0,127}$/,ne=new Set(["class","hidden","value","checked","style","title","alt","placeholder","lang","dir","role","tabindex","disabled","readonly","contenteditable","open","colspan","rowspan"]);function oe(e){const t=e.toLowerCase();return t.startsWith("data-")||t.startsWith("aria-")||ne.has(t)}var Be="http://www.w3.org/1999/xhtml",se="http://www.w3.org/2000/svg",ae=new Set(["script","style","iframe","noscript","noframes","noembed","xmp","plaintext","template","title","textarea","object","embed"]),ie=new Set(["script","style"]);function ce(e){const t=e.localName.toLowerCase();return e.namespaceURI==="http://www.w3.org/1999/xhtml"?!ae.has(t):e.namespaceURI===se?!ie.has(t):!1}function M(e,t){return e===t||(e===160||e===32)&&(t===160||t===32)}function le(e,t){const r=e.length,n=t.length;let s=0;for(;s<r&&s<n&&M(e.charCodeAt(s),t.charCodeAt(s));)s++;let o=0;for(;o<r-s&&o<n-s&&M(e.charCodeAt(r-1-o),t.charCodeAt(n-1-o));)o++;return{p:s,s:o}}function ue(e,t){const r=e.firstChild;if(e.childNodes.length!==1||r===null||r.nodeType!==Node.TEXT_NODE){e.textContent=t;return}const n=r.data,s=n.length,o=t.length,{p:i,s:c}=le(n,t);i===s&&c===0&&s===o||r.replaceData(i,s-i-c,t.slice(i,o-c));const h=r.data,p=e.ownerDocument.getSelection?.()??null,w=p!==null&&p.rangeCount>0&&(p.anchorNode===r||p.focusNode===r)?{anchor:p.anchorNode,anchorOffset:p.anchorOffset,focus:p.focusNode,focusOffset:p.focusOffset}:null;let m=-1,g=-1;for(let f=0;f<h.length&&f<t.length;f++){const v=h.charCodeAt(f),b=t.charCodeAt(f);v!==b&&M(v,b)&&(m<0&&(m=f),g=f)}const a=m>=0;if(a&&r.replaceData(m,g-m+1,t.slice(m,g+1)),a&&w!==null&&w.anchor!==null&&w.focus!==null)try{p.setBaseAndExtent(w.anchor,w.anchorOffset,w.focus,w.focusOffset)}catch{}}var fe=new Set(["html","head","body","frameset"]);function de(e){return e.namespaceURI==="http://www.w3.org/1999/xhtml"&&fe.has(e.localName)}function pe(e){if(e===null||typeof e!="object")return!1;const t=e;if(typeof t.target!="string"||!re.test(t.target)||t.text!==void 0&&typeof t.text!="string")return!1;if(t.attrsSet!==void 0){if(t.attrsSet===null||typeof t.attrsSet!="object")return!1;for(const[r,n]of Object.entries(t.attrsSet))if(!$.test(r)||typeof n!="string")return!1}if(t.attrsRemoved!==void 0){if(!Array.isArray(t.attrsRemoved))return!1;for(const r of t.attrsRemoved)if(typeof r!="string"||!$.test(r))return!1}return!0}function me(e,t){if(e===null||typeof e!="object")return!1;const{seq:r,elements:n}=e;if(typeof r!="number"||!Number.isSafeInteger(r)||!Array.isArray(n)||n.length===0||n.length>64)return!1;for(let s=0;s<n.length;s++)if(!t(n[s]))return!1;return!0}function he(e){return e===null||typeof e!="object"?!1:me(e.__frame_patch,pe)}function _e(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function ve(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function ye(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const r=t.theme;return typeof r=="string"&&te.includes(r)}var A=/^[\w.-]+\.js$/;function we(e,t,r){return r?"inert":typeof t=="string"&&A.test(t)?e?[t]:"inert":e?"inert":"framed"}function ge(){return{post(e,t){parent.postMessage(e,t)},on(e){const t=r=>{r.source===parent&&e(r.data,r.origin,r.isTrusted)};return addEventListener("message",t),()=>removeEventListener("message",t)}}}function be(){return{post:()=>{},on:()=>()=>{}}}var j="__frame_scroll",Ee=150,Ae=310,Se=160,Te=3e4;function ke(){let e=0,t=!1,r=!1,n=!1,s=0,o=null;const i=l=>{try{sessionStorage.setItem(j,JSON.stringify({y:l}))}catch{}},c=()=>{if(clearTimeout(e),o===null)return;const l=o;o=null,i(l)},h=()=>{if(t){t=!1;return}r=!0,o=scrollY,clearTimeout(e),e=setTimeout(c,Ee)};try{addEventListener("scroll",h,{passive:!0}),addEventListener("pagehide",c)}catch{}const p=()=>{let l;try{l=sessionStorage.getItem(j)}catch{return null}if(l===null)return null;let _;try{_=JSON.parse(l)}catch{_=null}const d=_?.y;if(!(typeof d=="number"&&Number.isFinite(d)&&d>=0)){try{sessionStorage.removeItem(j)}catch{}return null}return d};let w=!1;const m=l=>{try{const _=scrollY;scrollTo({top:l,left:0,behavior:"instant"}),s=l,n=!0,clearTimeout(e),o=null,i(l);const d=scrollY;d!==_&&(t=!0),d!==l&&!w&&(w=!0,addEventListener("load",()=>{try{if(scrollY===d){const T=p();m(T!==null?T:s)}}catch{}},{once:!0}))}catch{}},g=()=>{try{return!!location.hash}catch{return!0}};let a=!1;const f=()=>{try{if(a||innerWidth>Ae||innerHeight>Se)return;a=!0;const l=Date.now(),_=()=>{try{removeEventListener("resize",_)}catch{}if(Date.now()-l>Te||r||g())return;const d=p();m(d!==null?d:s)};addEventListener("resize",_)}catch{}};let v=!1,b=!1;return{restore(){if(v||(v=!0,g()))return;const l=p();l!==null&&(m(l),f())},promoted(){if(b||(b=!0,g()))return;const l=p();l!==null?(m(l),f()):n&&m(s)}}}function Re(e,t,r,n){let s=null;try{s=window.trustedTypes?.createPolicy("frame-runtime",{createScriptURL:h=>h})??null}catch{}const o=window.Worker,i=o?.prototype,c=Object.freeze({Worker:o,workerOn:i?.addEventListener,workerPost:i?.postMessage,workerTerminate:i?.terminate,fetch:window.fetch.bind(window),preventDefault:Event.prototype.preventDefault,policy:s,origins:t});r(e).then(h=>h?.bootTopLevel?h.bootTopLevel(c,n):n.settle()).catch(()=>n.settle())}var De="modulepreload",Ie=function(e){return"/"+e},Ue={},Le=function(t,r,n){let s=Promise.resolve();function o(i){const c=new Event("vite:preloadError",{cancelable:!0});if(c.payload=i,window.dispatchEvent(c),!c.defaultPrevented)throw i}return s.then(i=>{for(const c of i||[])c.status==="rejected"&&o(c.reason);return t().catch(o)})},Oe=window===top,q=Object.getOwnPropertyDescriptor(window,"claude"),k=we(Oe,window.__FRAME_PREAMBLE?.topLevel,q?.writable===!1),N=typeof k=="object"&&k[0],y=N?be():ge();(function(){const e=Object.defineProperty,t=globalThis,r=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let n=0;for(let s=0;s<r.length;s++){const o=r[s];try{e(t,o,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[o]}catch{}try{e(t,o,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[o]=="function"&&n++}if(n&&k==="framed")try{y.post({__frame_rtc_lockdown_failed:n},"*")}catch{}})();var Pe=1e4,Y=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function X(e){for(const t of Y)if(t.endsWith(":*"))try{const r=new URL(e);if(`${r.protocol}//${r.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var R=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),B=window.__FRAME_PREAMBLE?.transforms,D=window.__FRAME_PREAMBLE?.comments,I=window.__FRAME_PREAMBLE?.translate;function S(e){return Le(()=>import("/_runtime/"+e),void 0)}function G(e,t){return{contract:e.contract,changes:new Set(e.changes??[]),flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:new Map,shellOrigin:t,mount:x,hooks:O,pipe:()=>({wrap:(r,n)=>(...s)=>{try{return n(...s)}catch(o){return Promise.reject(o)}}})}}var L=null,E=null;function V(e,t,r){try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var U=!1,O={editBefore:null,edit:null};function Ce(e,t,r=!1){const n=[];let s;if(r)try{O.editBefore?.(e)}catch{}for(const o of e.elements){const i=document.querySelector(`[data-id="${o.target}"]`);if(!i){s=o.target;break}if([...Object.keys(o.attrsSet??{}),...o.attrsRemoved??[]].some(c=>!oe(c))){s=o.target;break}if(o.text!==void 0&&(!ce(i)||de(i))){s=o.target;break}for(const[c,h]of Object.entries(o.attrsSet??{}))if(!J(i,c)){try{i.setAttribute(c,h)}catch{}Z(i,c,h)}for(const c of o.attrsRemoved??[])J(i,c)||(i.removeAttribute(c),Z(i,c,null));typeof o.text=="string"&&ue(i,o.text),n.push(o.target)}if(r)try{O.edit?.(e.seq,n,s)}catch{}if(s!==void 0){y.post({__frame_patch_miss:{seq:e.seq}},t);return}try{document.dispatchEvent(new CustomEvent("claude:edit",{detail:{seq:e.seq,targets:n}}))}catch{}}function Z(e,t,r){if(!(e instanceof HTMLInputElement))return;const n=t.toLowerCase();n==="checked"?e.checked=r!==null:n==="value"&&e.type!=="file"&&(e.value=r??"")}function J(e,t){const r=t.toLowerCase(),n=e;return r==="data-id"||(r==="value"||r==="checked")&&(n.__artifactSecret===!0||/^(password|hidden|file)$/.test(n.type??"")||/(^|\s)(cc-|one-time-code|current-password|new-password)/i.test(`${e.getAttribute("autocomplete")??""} ${n.autocomplete??""}`))}function Q(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,U=!0):U&&(delete t.dataset.theme,t.style.colorScheme="",U=!1)}var P=new Map;function Me(){let e;const t={u:new Promise(r=>{e=r}),r:r=>{t.done=!0,e(r)},done:!1,nulled:!1};return t}function F(){for(const e of P.values())e.done||(e.nulled=!0,e.r(null))}var je=Object.freeze(Object.assign(Object.create(null),{call:Function.prototype.call,apply:Function.prototype.apply,bind:Function.prototype.bind})),x=(e,t)=>{const r=P.get(e);if(!r||r.done){r?.nulled&&E&&y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:e}},E);return}const n=typeof t=="function"?Object.setPrototypeOf(t,je):Object.assign(Object.create(null),t);typeof n.then=="function"&&delete n.then,r.r(Object.freeze(n))};function ee(){const e=q?.value??{};V(window,"claude",e);for(const t of Object.keys(R)){if(e[t]!==void 0){V(e,t,e[t]);continue}P.set(t,Me())}if(e.use===void 0){const t=r=>{if(typeof r!="string"||!Object.hasOwn(R,r))return Promise.resolve(null);const n=P.get(r);return n?n.u:Promise.resolve(e[r]??null)};try{Object.defineProperty(e,"use",{value:t,writable:!0,configurable:!0,enumerable:!1})}catch{}}}if(k==="framed"){const e=B&&A.test(B)?S(B).catch(()=>{}):Promise.resolve(void 0),t=a=>{if(a.type==="auxclick"&&a.button!==1)return;const f=a.target,v=f&&f.closest?f.closest("a[href],area[href]"):null;if(!v)return;const b=v.getAttribute("href");if(!b)return;let l;try{l=new URL(b,document.baseURI)}catch{return}if((l.protocol==="http:"||l.protocol==="https:")&&l.origin!==location.origin){a.preventDefault();const _=(v.getAttribute("target")??"").toLowerCase(),d=a.type==="auxclick"||a.metaKey||a.ctrlKey||a.shiftKey||a.altKey||!["","_self","_top","_parent"].includes(_);y.post({__frame_nav:!0,url:l.href,newTab:d},"*")}};addEventListener("click",t,!0),addEventListener("auxclick",t,!0);const r={},n=a=>{a.isTrusted&&(r.pointer=!0)},s=a=>{a.isTrusted&&(r.click=!0)};addEventListener("pointermove",n,{capture:!0,passive:!0}),addEventListener("click",s,{capture:!0,passive:!0}),e.then(a=>{a?.wireNav&&(a.wireNav(),removeEventListener("click",t,!0),removeEventListener("auxclick",t,!0),removeEventListener("pointermove",n,!0),removeEventListener("click",s,!0),a.wireEngagement?.(r))});let o=null;try{o=ke()}catch{}ee();let i=null,c=null,h=0;const p=y.on((a,f)=>{X(f)&&_e(a)&&(i=a.__frame_init,E=f,p(),clearTimeout(h),c?.())});y.post({__frame_connect:!0},"*");const w=new Promise(a=>{c=a,h=setTimeout(()=>{p(),a()},Pe)}),m=document.readyState==="loading"?new Promise(a=>document.addEventListener("DOMContentLoaded",()=>a(),{once:!0})):Promise.resolve();m.then(()=>{try{o?.restore()}catch{}});const g={cb:null};y.on((a,f)=>{if(X(f)&&ve(a)){try{o?.promoted()}catch{}g.cb?.()}}),w.then(async()=>{if(!i||!E){F();return}Q(i.theme);const a=E;let f=!1,v=!1;y.on((u,z,C)=>{if(z!==a)return;ye(u)&&Q(u.__frame_theme.theme),he(u)&&Ce(u.__frame_patch,a,C);const H=u?.__fc_mode;H&&typeof H=="object"&&!f&&D&&A.test(D)&&(f=!0,S(D).then(K=>K.install?.(a,H.on===!0)).catch(()=>{}));const W=u?.__ft_cmd;W&&typeof W=="object"&&!v&&I&&A.test(I)&&(v=!0,S(I).then(K=>K.install?.(a,W)).catch(()=>{}))});const b=Object.keys(i.capabilities??{}).filter(u=>Object.hasOwn(R,u)).map(u=>[u,R[u]]).filter(u=>typeof u[1]=="string"&&A.test(u[1])),l=await Promise.allSettled(b.map(([,u])=>S(u))),_=await e,d=E;if(_?.buildBoot||y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),_?.buildBoot)try{L=_.buildBoot(i,_.TRANSFORMS??{},{shellOrigin:d,mount:x,hooks:O},u=>y.post({__frame_cap_telemetry:u},d))}catch{y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),L=G(i,d)}else L=G(i,d);const T=u=>y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:u}},d),Ne=L;l.forEach((u,z)=>{const C=b[z][0];if(u.status!=="fulfilled"){T(C);return}try{u.value?.install?.(Ne)}catch{T(C)}}),F(),await m,y.post({__frame_ready:!0},E),e.then(u=>u?.installSizeReporter?.(d,g))})}else N&&(ee(),Re(N,Y,S,{settle:F,mount:x}))})();</script><!-- /frame-runtime --><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style></head><body>
+<title>Noon P&amp;L Performance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  /* Noon brand tokens — NOON_TEMPLATE_RULES §3. No colours outside this palette. */
+  :root{
+    --dark-blue:#11203A; --dark-blue-deep:#0B1729; --green:#17E4A1; --green-deep:#0FB07F;
+    --orange:#FE814F; --orange-deep:#D16B41; --purple:#7C5CE1; --cream:#F4EEE0; --cream-light:#FAF6EC;
+    --white:#FFFFFF; --gray-dark:#5A6878; --gray-mid:#9AA4B0; --gray-light:#D6D6D6;
+
+    --ground:var(--white); --surface:var(--white); --surface-2:var(--cream-light); --surface-3:var(--cream);
+    --ink:var(--dark-blue); --ink-2:var(--gray-dark); --ink-3:var(--gray-mid); --hair:var(--gray-light);
+    --band:var(--dark-blue); --band-ink:var(--white); --band-muted:var(--gray-mid); --accent:var(--green);
+    --good-ink:var(--green-deep); --bad-ink:var(--orange-deep);
+    --good-bg:rgba(23,228,161,.16); --bad-bg:rgba(254,129,79,.16); --flat-bg:var(--cream);
+    --s1:var(--green); --s2:var(--dark-blue); --s3:var(--orange); --s4:var(--purple); --s5:var(--gray-dark);
+    --c-in:var(--green); --c-out:var(--orange); --c-total:var(--dark-blue);
+    --tip-bg:var(--dark-blue); --tip-ink:var(--cream);
+    --shade-base:17,32,58;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:var(--dark-blue-deep); --surface:var(--dark-blue); --surface-2:var(--dark-blue-deep); --surface-3:rgba(154,164,176,.12);
+      --ink:var(--cream); --ink-2:var(--gray-mid); --ink-3:var(--gray-dark); --hair:rgba(154,164,176,.28);
+      --band:var(--dark-blue-deep); --flat-bg:rgba(154,164,176,.14);
+      --good-ink:var(--green); --bad-ink:var(--orange);
+      --s2:var(--cream); --c-total:var(--cream); --shade-base:244,238,224;
+      --tip-bg:var(--cream); --tip-ink:var(--dark-blue);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:var(--dark-blue-deep); --surface:var(--dark-blue); --surface-2:var(--dark-blue-deep); --surface-3:rgba(154,164,176,.12);
+    --ink:var(--cream); --ink-2:var(--gray-mid); --ink-3:var(--gray-dark); --hair:rgba(154,164,176,.28);
+    --band:var(--dark-blue-deep); --flat-bg:rgba(154,164,176,.14);
+    --good-ink:var(--green); --bad-ink:var(--orange);
+    --s2:var(--cream); --c-total:var(--cream); --shade-base:244,238,224;
+    --tip-bg:var(--cream); --tip-ink:var(--dark-blue);
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font:14px/1.5 "IBM Plex Sans",Calibri,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{margin:0;font-weight:700;text-wrap:balance}
+  .eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+
+  /* Masthead */
+  .mast{background:var(--band);color:var(--band-ink)}
+  .mast-in{max-width:1320px;margin:0 auto;padding:22px 32px 20px;display:flex;justify-content:space-between;align-items:flex-end;gap:28px;flex-wrap:wrap}
+  .mast .eyebrow{color:var(--accent)}
+  .mast h1{font-size:26px;letter-spacing:-.01em;margin-top:4px}
+  .mast .sub{color:var(--band-muted);font-size:12px;margin-top:4px;max-width:660px}
+  .mast-right{font-size:12px;color:var(--band-muted);line-height:1.7}
+  .mast-right b{color:var(--band-ink);font-weight:600}
+
+  /* Period selector */
+  .period{display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+  .period .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .period label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+  .period select{appearance:none;background:var(--dark-blue-deep);color:var(--cream);border:1px solid var(--gray-dark);font:inherit;font-size:12.5px;font-weight:600;padding:5px 26px 5px 10px;cursor:pointer;background-image:linear-gradient(45deg,transparent 50%,var(--gray-mid) 50%),linear-gradient(135deg,var(--gray-mid) 50%,transparent 50%);background-position:calc(100% - 13px) 12px,calc(100% - 9px) 12px;background-size:4px 4px;background-repeat:no-repeat}
+  .period select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .period .arrow{color:var(--gray-mid)}
+  .quick{display:inline-flex;border:1px solid var(--gray-dark)}
+  .quick button{appearance:none;border:0;border-right:1px solid var(--gray-dark);background:transparent;color:var(--gray-mid);font:inherit;font-size:12px;font-weight:600;padding:5px 12px;cursor:pointer}
+  .quick button:last-child{border-right:0}
+  .quick button[aria-pressed="true"]{background:var(--green);color:var(--dark-blue)}
+  .quick button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .period .picked{font-size:12px;color:var(--band-muted)}
+  .period .picked b{color:var(--band-ink);font-weight:600}
+
+  /* Frame */
+  .frame{max-width:1320px;margin:0 auto;padding:24px 32px 64px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px}
+  nav.rail{position:sticky;top:20px;align-self:start;font-size:12.5px}
+  nav.rail a{display:flex;gap:10px;align-items:baseline;padding:7px 10px;border-left:2px solid var(--hair);color:var(--ink-2);text-decoration:none}
+  nav.rail a .n{font-size:11px;color:var(--ink-3);width:14px;font-variant-numeric:tabular-nums}
+  nav.rail a:hover{color:var(--ink)}
+  nav.rail a.on{border-left-color:var(--accent);color:var(--ink);font-weight:600}
+  nav.rail .rail-foot{margin-top:18px;padding:10px;font-size:11px;color:var(--ink-3);line-height:1.5}
+  main{min-width:0;display:flex;flex-direction:column;gap:44px}
+
+  section.sec{scroll-margin-top:16px}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--hair)}
+  .sec-head .n{font-size:12px;font-weight:700;color:var(--green);background:var(--dark-blue);padding:2px 8px;font-variant-numeric:tabular-nums}
+  .sec-head h2{font-size:18px}
+  .sec-head .scope{margin-left:auto;font-size:12px;color:var(--ink-3)}
+
+  /* Grid & cards — square corners, hairline borders, no shadows (rules §11) */
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g-aging{grid-template-columns:700fr 460fr}
+  .card{background:var(--surface);border:1px solid var(--hair);padding:16px 18px 14px;min-width:0}
+  .card-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px}
+  .card-h h3{font-size:13.5px;font-weight:700}
+  .card-h .sub{font-size:12px;color:var(--ink-3);text-align:right}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-2);margin:0 0 8px;min-height:18px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:10px;height:10px;display:inline-block}
+  .legend i.line{height:2px;width:14px}
+  .legend i.dash{height:0;width:14px;border-top:2px dashed currentColor;background:none}
+  .legend i.mark{width:3px;height:12px}
+  .legend i.hollow{border:2px solid currentColor;background:var(--surface)}
+  .note{font-size:11.5px;color:var(--ink-3);margin-top:8px;line-height:1.45}
+  .note.flag{padding:8px 10px;background:var(--surface-2);color:var(--ink-2);border-left:2px solid var(--orange)}
+  .note.flag b{color:var(--ink)}
+  .dummy{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange-deep);border:1px solid var(--orange);padding:0 6px;margin-left:8px;vertical-align:2px}
+
+  /* KPI tiles — one skeleton for every tile: rule, label, value, sub, chip.
+     Fixed heights on each part keep the shaded chips aligned across panels. */
+  .panels{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .panel{background:var(--surface);border:1px solid var(--hair)}
+  .panel.wide{grid-column:1/-1}
+  .panel-h{display:flex;justify-content:space-between;align-items:baseline;padding:9px 18px;background:var(--band);color:var(--band-ink)}
+  .panel-h .eyebrow{color:var(--accent)}
+  .panel-h .when{font-size:12.5px;font-weight:600}
+  .tiles{display:grid;grid-template-columns:1fr 1fr}
+  .tiles.six{grid-template-columns:repeat(6,1fr)}
+  .tile{display:flex;flex-direction:column;padding:14px 18px;border-top:1px solid var(--hair);border-right:1px solid var(--hair);min-width:0}
+  .tiles:not(.six) .tile:nth-child(2n){border-right:0}
+  .tiles.six .tile:nth-child(6n){border-right:0}
+  .tile .rule{height:3px;width:28px;background:var(--accent);margin-bottom:10px;flex:none}
+  .tile.challenge .rule{background:var(--orange)}
+  .tile .label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tile .val{font-size:30px;font-weight:700;line-height:1;height:32px;margin:8px 0 6px;letter-spacing:-.01em;white-space:nowrap}
+  .tiles.six .tile .val{font-size:25px;height:27px}
+  .tile .val small{font-size:14px;font-weight:500;color:var(--ink-2);margin-left:3px}
+  .tile .sub{font-size:12px;color:var(--ink-3);height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tile .chip{margin-top:10px}
+  .chip{display:flex;align-items:center;justify-content:flex-start;gap:5px;padding:0 8px;height:24px;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .chip.good{background:var(--good-bg);color:var(--good-ink)}
+  .chip.bad{background:var(--bad-bg);color:var(--bad-ink)}
+  .chip.flat{background:var(--flat-bg);color:var(--ink-2)}
+
+  /* Tables — dark-blue header, white / cream-light rows (rules §6.7) */
+  .tbl-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.fixed{table-layout:fixed}
+  th,td{padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
+  th:first-child,td:first-child{text-align:left;font-weight:600}
+  thead th{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--white);background:var(--dark-blue)}
+  thead th.grp{text-align:center;border-bottom:1px solid var(--gray-dark)}
+  tbody td{background:var(--surface)}
+  tbody tr:nth-child(even) td{background:var(--surface-2)}
+  tr.total td{font-weight:700;border-top:1px solid var(--ink)}
+  tr.pct td{color:var(--ink-2);font-style:italic;font-weight:400}
+  tr.fc td{color:var(--ink-2)}
+  tr.fc td:first-child::after{content:"F";margin-left:6px;font-size:9.5px;font-weight:700;color:var(--orange-deep);border:1px solid var(--orange);padding:0 4px;vertical-align:1px}
+  tr.sel td{background:var(--surface-3)!important;font-weight:600}
+  td.pos{color:var(--good-ink)} td.neg{color:var(--bad-ink)}
+  td .sw{display:inline-block;width:8px;height:8px;margin-right:8px;vertical-align:1px}
+  td.dim{color:var(--ink-3)}
+  .tbl-title{font-size:13.5px;font-weight:700;margin:0 0 8px}
+
+  /* Charts — fixed frames so paired charts share height */
+  .chart{position:relative;width:100%}
+  .chart svg{display:block;width:100%;height:auto;overflow:visible}
+  .chart text{font-family:inherit;fill:var(--ink-2);font-size:11px}
+  .chart .axis text{fill:var(--ink-3)}
+  .chart .grid line{stroke:var(--hair);stroke-width:1}
+  .chart .base{stroke:var(--gray-mid);stroke-width:1}
+  .chart .lbl{fill:var(--ink);font-weight:600}
+  .chart .hit{fill:transparent}
+  .chart .mark:hover{opacity:.85}
+  .chart .xh{stroke:var(--gray-mid);stroke-width:1;opacity:0;pointer-events:none}
+  .chart .cat{font-size:11.5px;fill:var(--ink)}
+  .chart .fc-band{fill:var(--surface-2)}
+  .chart .fc-line{stroke:var(--orange);stroke-width:1}
+  .chart .fc-lbl{fill:var(--orange-deep);font-weight:700;font-size:10px;letter-spacing:.08em}
+  .chart .act-lbl{fill:var(--ink-2);font-weight:700;font-size:10px;letter-spacing:.08em}
+  #tip{position:fixed;z-index:50;pointer-events:none;background:var(--tip-bg);color:var(--tip-ink);padding:8px 10px;font-size:12px;line-height:1.45;opacity:0;transition:opacity .08s;max-width:280px}
+  #tip .t{font-weight:600;margin-bottom:3px;opacity:.85}
+  #tip .r{display:flex;justify-content:space-between;gap:14px}
+  #tip .r i{display:inline-block;width:12px;height:2px;margin-right:6px;vertical-align:3px}
+  #tip .r b{font-weight:600;font-variant-numeric:tabular-nums}
+
+  /* Key updates */
+  .updates{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+  .upd{padding:12px 14px;border:1px solid var(--hair);border-left:3px solid var(--accent);background:var(--surface)}
+  .upd .eyebrow{margin-bottom:4px}
+  .upd p{margin:0;font-size:13px;line-height:1.55}
+
+  footer{margin-top:8px;padding-top:14px;border-top:1px solid var(--hair);font-size:11.5px;color:var(--ink-3);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+
+  @media (max-width:1000px){
+    .frame{grid-template-columns:1fr;padding:18px 16px 48px}
+    nav.rail{position:static;display:flex;overflow-x:auto;gap:4px;border-bottom:1px solid var(--hair);padding-bottom:8px}
+    nav.rail a{border-left:0;border-bottom:2px solid transparent;white-space:nowrap}
+    nav.rail a.on{border-bottom-color:var(--accent)}
+    nav.rail .rail-foot{display:none}
+    .g2,.g-aging,.panels,.updates{grid-template-columns:1fr}
+    .tiles.six{grid-template-columns:1fr 1fr 1fr}
+    .tiles.six .tile:nth-child(6n){border-right:1px solid var(--hair)} .tiles.six .tile:nth-child(3n){border-right:0}
+    .mast-in{padding:18px 16px} .period{align-items:flex-start} .period .row{justify-content:flex-start}
+  }
+  @media print{ nav.rail{display:none} .frame{grid-template-columns:1fr} .card,.panel{break-inside:avoid} }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <div class="eyebrow">Noon Academy · Finance</div>
+      <h1>P&amp;L Performance</h1>
+      <div class="sub">Revenue and cost build-up to EBITDA, working capital movements, and cash — each shown for the selected period alongside the fiscal year to date.</div>
+      <div class="mast-right" style="margin-top:8px"><b id="m-fy"></b> · fiscal year July–June · all figures in <b>USD millions</b> · actual vs budget · refreshed <b id="m-gen"></b></div>
+    </div>
+    <div class="period" role="group" aria-label="Reporting period">
+      <div class="row">
+        <label for="p-from">Period</label>
+        <select id="p-from" aria-label="From month"></select>
+        <span class="arrow">→</span>
+        <select id="p-to" aria-label="To month"></select>
+        <span class="quick" id="quick"></span>
+      </div>
+      <div class="picked">Showing <b id="p-label"></b> against year-to-date <b id="m-ytd"></b></div>
+    </div>
+  </div>
+</header>
+
+<div class="frame">
+  <nav class="rail" aria-label="Sections">
+    <a href="#s0"><span class="n">—</span>Executive summary</a>
+    <a href="#s1"><span class="n">1</span>P&amp;L performance</a>
+    <a href="#s2"><span class="n">2</span>Working capital movements</a>
+    <a href="#s3"><span class="n">3</span>Cash &amp; liquidity</a>
+    <a href="#s4"><span class="n">4</span>Key updates</a>
+    <div class="rail-foot">Choose any month range at the top — a single month, a fiscal quarter, or the year to date. Every chart and table below follows it. Hover any mark for its value.</div>
+  </nav>
+
+  <main>
+    <!-- Executive summary -->
+    <section class="sec" id="s0">
+      <div class="sec-head"><span class="n">—</span><h2>Executive summary</h2><span class="scope" id="es-scope"></span></div>
+      <div class="panels">
+        <div class="panel">
+          <div class="panel-h"><span class="eyebrow" id="p-m-kind">Month</span><span class="when" id="p-m-when"></span></div>
+          <div class="tiles" id="tiles-m"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><span class="eyebrow">Year-to-date</span><span class="when" id="p-y-when"></span></div>
+          <div class="tiles" id="tiles-y"></div>
+        </div>
+        <div class="panel wide">
+          <div class="panel-h"><span class="eyebrow">Cash, collections &amp; payments</span><span class="when" id="p-c-when"></span></div>
+          <div class="tiles six" id="tiles-c"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 1 P&L -->
+    <section class="sec" id="s1">
+      <div class="sec-head"><span class="n">1</span><h2>P&amp;L performance</h2><span class="scope" id="pl-scope"></span></div>
+      <div class="grid g2">
+        <div class="card">
+          <div class="card-h"><h3>Revenue by business unit</h3><span class="sub" id="rev-scope"></span></div>
+          <div class="legend"><span><i style="background:var(--s1)"></i>Actual</span><span><i class="mark" style="background:var(--s2)"></i>Budget</span></div>
+          <div class="chart" id="ch-rev"></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3>Cost by category</h3><span class="sub" id="cost-scope"></span></div>
+          <div class="legend" id="lg-cost"></div>
+          <div class="chart" id="ch-cost"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-h"><h3>P&amp;L summary — actual vs budget</h3><span class="sub">USD M · variance = actual − budget · margins in % of revenue</span></div>
+        <div class="tbl-wrap"><table id="t-pl"></table></div>
+        <div class="note">Marketing, BU salaries, Noon HQ and other operating expenses come from the workbook's cost categories (staff costs, central overhead, facilities); every subtotal ties to the workbook. Contribution profit is gross profit less marketing.</div>
+      </div>
+      <div class="card" style="margin-top:16px"><h3 class="tbl-title">Revenue by business unit</h3><div class="tbl-wrap"><table id="t-rev"></table></div></div>
+      <div class="card" style="margin-top:16px"><h3 class="tbl-title">Cost by category</h3><div class="tbl-wrap"><table id="t-cost"></table></div></div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-h"><h3>Revenue mix — share of consolidated revenue</h3><span class="sub">Selected period vs year-to-date</span></div>
+        <div class="legend" id="lg-mix"></div>
+        <div class="chart" id="ch-mix"></div>
+      </div>
+    </section>
+
+    <!-- 2 Working capital movements -->
+    <section class="sec" id="s2">
+      <div class="sec-head"><span class="n">2</span><h2>Working capital movements</h2><span class="scope">Position, receivables and payables</span></div>
+      <div class="card">
+        <div class="card-h"><h3>Working capital — monthly position</h3><span class="sub">USD M · closing balances · <b>F</b> = forecast</span></div>
+        <div class="tbl-wrap"><table id="t-wc" class="fixed"></table></div>
+        <div class="note" id="wc-note"></div>
+      </div>
+      <div class="grid g-aging" style="margin-top:16px">
+        <div class="card">
+          <div class="card-h"><h3>Accounts receivable — aging</h3><span class="sub" id="ar-aging-scope"></span></div>
+          <div class="legend"><span><i style="background:var(--s1)"></i>Current</span><span><i style="background:var(--s2)"></i>31–60 days</span><span><i style="background:var(--s3)"></i>60+ days</span></div>
+          <div class="chart" id="ch-ar-aging"></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3>Accounts receivable — by contract <span class="dummy">dummy</span></h3><span class="sub" id="ar-contract-scope"></span></div>
+          <div class="legend"><span><i style="background:var(--s1)"></i>Outstanding balance</span></div>
+          <div class="chart" id="ch-ar-contract"></div>
+        </div>
+      </div>
+      <div class="grid g2" style="margin-top:16px">
+        <div class="card">
+          <div class="card-h"><h3>Invoiced vs collected</h3><span class="sub" id="ar-scope"></span></div>
+          <div class="legend"><span><i style="background:var(--s2)"></i>Invoiced / billed</span><span><i style="background:var(--s1)"></i>Collected</span></div>
+          <div class="chart" id="ch-ar"></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3>Purchases vs payments</h3><span class="sub" id="ap-scope"></span></div>
+          <div class="legend"><span><i style="background:var(--s2)"></i>Purchases / accruals</span><span><i style="background:var(--s3)"></i>Payments made</span></div>
+          <div class="chart" id="ch-ap"></div>
+        </div>
+      </div>
+      <div class="grid g-aging" style="margin-top:16px">
+        <div class="card">
+          <div class="card-h"><h3>Accounts payable — aging</h3><span class="sub" id="ap-aging-scope"></span></div>
+          <div class="legend"><span><i style="background:var(--s1)"></i>Current</span><span><i style="background:var(--s2)"></i>31–60 days</span><span><i style="background:var(--s3)"></i>60+ days</span></div>
+          <div class="chart" id="ch-ap-aging"></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3>Payments — by vendor <span class="dummy">dummy</span></h3><span class="sub" id="ap-vendor-scope"></span></div>
+          <div class="legend"><span><i style="background:var(--s3)"></i>Payments made</span></div>
+          <div class="chart" id="ch-ap-vendor"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 Cash -->
+    <section class="sec" id="s3">
+      <div class="sec-head"><span class="n">3</span><h2>Cash &amp; liquidity</h2><span class="scope">Runway, bridges and balance</span></div>
+      <div class="panels">
+        <div class="panel">
+          <div class="panel-h"><span class="eyebrow">Month</span><span class="when" id="c-m-when"></span></div>
+          <div class="tiles" id="ctiles-m"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><span class="eyebrow">Year-to-date</span><span class="when" id="c-y-when"></span></div>
+          <div class="tiles" id="ctiles-y"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-h"><h3>Cash bridge — month</h3><span class="sub" id="br-m-scope"></span></div>
+        <div class="legend"><span><i style="background:var(--c-total)"></i>Balance</span><span><i style="background:var(--c-in)"></i>Inflow</span><span><i style="background:var(--c-out)"></i>Outflow</span></div>
+        <div class="chart" id="ch-br-m"></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-h"><h3>Cash bridge — year-to-date</h3><span class="sub" id="br-y-scope"></span></div>
+        <div class="legend"><span><i style="background:var(--c-total)"></i>Balance</span><span><i style="background:var(--c-in)"></i>Inflow</span><span><i style="background:var(--c-out)"></i>Outflow</span></div>
+        <div class="chart" id="ch-br-y"></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-h"><h3>Monthly cash balance</h3><span class="sub" id="cash-scope"></span></div>
+        <div class="legend"><span><i class="line" style="background:var(--s1)"></i>Closing cash · actual</span><span><i class="dash" style="color:var(--s1)"></i>Forecast</span><span><i class="hollow" style="color:var(--s1)"></i>Illustrative actual</span></div>
+        <div class="chart" id="ch-cash"></div>
+        <div class="note flag" id="cash-flag" hidden><b>Hollow points are illustrative.</b> Enter closed balances in <code>build.py → CASH_MONTHLY</code> (or add a row to the workbook) to replace them.</div>
+      </div>
+    </section>
+
+    <!-- 4 Key updates -->
+    <section class="sec" id="s4">
+      <div class="sec-head"><span class="n">4</span><h2>Key updates</h2><span class="scope">Management highlights · written each month alongside the numbers</span></div>
+      <div class="updates" id="updates"></div>
+    </section>
+
+    <footer>
+      <span>Source: <span id="f-src"></span> · tab “P&amp;L Performance” · refreshed <span id="f-gen"></span></span>
+      <span>Noon Academy · internal management information</span>
+    </footer>
+  </main>
+</div>
+<div id="tip" role="status" aria-live="polite"></div>
+
+<script>
+const DATA = {"meta":{"period":"June 2026","ytd_label":"Jan–Jun 2026","generated":"02 Sep 2026","source":"d9961e83-pl_only_final.xlsx","currency":"USD M","months":["Jan","Feb","Mar","Apr","May","Jun"],"year":"2026","period_index":5,"fy_start_month":7,"fiscal_year":"FY25/26"},"revenue":[{"name":"Tracks","month":{"actual":0.99,"budget":1.07,"var":-0.08,"pct":0.9252},"ytd":{"actual":5.65,"budget":6.17,"var":-0.52,"pct":0.9157},"total":false,"monthly":null},{"name":"B2B","month":{"actual":0.63,"budget":0.63,"var":0.0,"pct":1.0},"ytd":{"actual":3.64,"budget":3.72,"var":-0.08,"pct":0.9785},"total":false,"monthly":null},{"name":"Govt Schools — Legacy","month":{"actual":0.52,"budget":0.56,"var":-0.04,"pct":0.9286},"ytd":{"actual":2.97,"budget":3.2,"var":-0.23,"pct":0.9281},"total":false,"monthly":null},{"name":"Govt Schools — New","month":{"actual":0.26,"budget":0.29,"var":-0.03,"pct":0.8966},"ytd":{"actual":1.41,"budget":1.56,"var":-0.15,"pct":0.9038},"total":false,"monthly":null},{"name":"Out of School","month":{"actual":0.1,"budget":0.1,"var":0.0,"pct":1.0},"ytd":{"actual":0.68,"budget":0.6,"var":0.08,"pct":1.1333},"total":false,"monthly":null},{"name":"Total Revenue","month":{"actual":2.5,"budget":2.65,"var":-0.15,"pct":0.9434},"ytd":{"actual":14.35,"budget":15.25,"var":-0.9,"pct":0.941},"total":true,"monthly":null}],"costs":[{"name":"Direct / operator costs","month":{"actual":0.89,"budget":0.92,"var":-0.03,"pct":0.9674},"ytd":{"actual":5.06,"budget":5.28,"var":-0.22,"pct":0.9583},"total":false,"monthly":null},{"name":"Staff costs","month":{"actual":0.68,"budget":0.7,"var":-0.02,"pct":0.9714},"ytd":{"actual":3.87,"budget":3.94,"var":-0.07,"pct":0.9822},"total":false,"monthly":null},{"name":"Facilities & operations","month":{"actual":0.26,"budget":0.24,"var":0.02,"pct":1.0833},"ytd":{"actual":1.41,"budget":1.41,"var":0.0,"pct":1.0},"total":false,"monthly":null},{"name":"Marketing","month":{"actual":0.1,"budget":0.13,"var":-0.03,"pct":0.7692},"ytd":{"actual":0.67,"budget":0.82,"var":-0.15,"pct":0.8171},"total":false,"monthly":null},{"name":"Central / corporate overhead","month":{"actual":0.21,"budget":0.2,"var":0.01,"pct":1.05},"ytd":{"actual":1.18,"budget":1.2,"var":-0.02,"pct":0.9833},"total":false,"monthly":null},{"name":"Total Costs","month":{"actual":2.14,"budget":2.19,"var":-0.05,"pct":0.9772},"ytd":{"actual":12.19,"budget":12.65,"var":-0.46,"pct":0.9636},"total":true,"monthly":null}],"pl":[{"name":"Revenue","kind":"value","month":{"actual":2.5,"budget":2.65,"var":-0.15,"pct":0.9434},"ytd":{"actual":14.35,"budget":15.25,"var":-0.9,"pct":0.941},"cost":false,"total":false,"monthly":null},{"name":"Direct / operator costs","kind":"value","month":{"actual":0.89,"budget":0.92,"var":-0.03,"pct":0.9674},"ytd":{"actual":5.06,"budget":5.28,"var":-0.22,"pct":0.9583},"cost":true,"total":false,"monthly":null},{"name":"Gross profit","kind":"value","month":{"actual":1.61,"budget":1.73,"var":-0.12,"pct":0.9306},"ytd":{"actual":9.29,"budget":9.97,"var":-0.68,"pct":0.9318},"cost":false,"total":true,"monthly":null},{"name":"Operating expenses","kind":"value","month":{"actual":1.25,"budget":1.27,"var":-0.02,"pct":0.9843},"ytd":{"actual":7.13,"budget":7.37,"var":-0.24,"pct":0.9674},"cost":true,"total":false,"monthly":null},{"name":"EBITDA","kind":"value","month":{"actual":0.36,"budget":0.46,"var":-0.1,"pct":0.7826},"ytd":{"actual":2.16,"budget":2.6,"var":-0.44,"pct":0.8308},"cost":false,"total":true,"monthly":null},{"name":"Gross profit margin","kind":"pct","cost":false,"total":false,"monthly":null,"month":{"actual":0.644,"budget":0.6528,"var":-0.0088,"pct":null},"ytd":{"actual":0.6474,"budget":0.6538,"var":-0.0064,"pct":null}},{"name":"Contribution margin","kind":"pct","cost":false,"total":false,"monthly":null,"month":{"actual":0.644,"budget":0.6528,"var":-0.0088,"pct":null},"ytd":{"actual":0.6474,"budget":0.6538,"var":-0.0064,"pct":null}},{"name":"EBITDA margin","kind":"pct","cost":false,"total":false,"monthly":null,"month":{"actual":0.144,"budget":0.1736,"var":-0.0296,"pct":null},"ytd":{"actual":0.1505,"budget":0.1705,"var":-0.02,"pct":null}}],"margins":{"gm_month":0.644,"gm_ytd":0.6474,"ebitda_month":0.144,"ebitda_ytd":0.1505},"rev_mix":[{"name":"Tracks","month":{"rev":0.99,"share":0.396},"ytd":{"rev":5.65,"share":0.3937}},{"name":"B2B","month":{"rev":0.63,"share":0.252},"ytd":{"rev":3.64,"share":0.2537}},{"name":"Govt Schools — Legacy","month":{"rev":0.52,"share":0.208},"ytd":{"rev":2.97,"share":0.207}},{"name":"Govt Schools — New","month":{"rev":0.26,"share":0.104},"ytd":{"rev":1.41,"share":0.0983}},{"name":"Out of School","month":{"rev":0.1,"share":0.04},"ytd":{"rev":0.68,"share":0.0474}}],"wc_monthly":[{"month":"Jan-26","ar":5.9,"ap":-2.9,"deferred":-2.4,"other":0.5,"nwc":1.1,"movement":0},{"month":"Feb-26","ar":6.1,"ap":-2.8,"deferred":-2.3,"other":0.5,"nwc":1.5,"movement":0.4},{"month":"Mar-26","ar":6.3,"ap":-2.7,"deferred":-2.2,"other":0.6,"nwc":2.0,"movement":0.5},{"month":"Apr-26","ar":6.4,"ap":-2.9,"deferred":-2.2,"other":0.5,"nwc":1.8,"movement":-0.2},{"month":"May-26","ar":6.6,"ap":-2.8,"deferred":-2.1,"other":0.6,"nwc":2.3,"movement":0.5},{"month":"Jun-26","ar":6.7,"ap":-2.7,"deferred":-2.1,"other":0.6,"nwc":2.5,"movement":0.2},{"month":"Jul-26","ar":6.8,"ap":-2.6,"deferred":-2,"other":0.6,"nwc":2.8,"movement":0.3,"forecast":true},{"month":"Aug-26","ar":7.1,"ap":-2.4,"deferred":-1.8,"other":0.3,"nwc":3.2,"movement":0.4,"forecast":true}],"wc_ytd":[{"item":"Accounts receivable","open":5.9,"close":6.7,"movement":0.8,"cash_impact":-0.8},{"item":"Accounts payable","open":-2.9,"close":-2.7,"movement":0.2,"cash_impact":-0.2},{"item":"Deferred revenue","open":-2.4,"close":-2.1,"movement":0.3,"cash_impact":-0.3},{"item":"Other working capital items","open":0.5,"close":0.6,"movement":0.1,"cash_impact":-0.1},{"item":"Net working capital","open":1.1,"close":2.5,"movement":1.4,"cash_impact":-1.4}],"ar_monthly":[{"month":"Jan-26","opening":5.7,"invoiced":2.3,"collected":2.1,"closing":5.9,"rate":0.913},{"month":"Feb-26","opening":5.9,"invoiced":2.25,"collected":2.05,"closing":6.1,"rate":0.9111},{"month":"Mar-26","opening":6.1,"invoiced":2.55,"collected":2.35,"closing":6.3,"rate":0.9216},{"month":"Apr-26","opening":6.3,"invoiced":2.4,"collected":2.3,"closing":6.4,"rate":0.9583},{"month":"May-26","opening":6.4,"invoiced":2.35,"collected":2.15,"closing":6.6,"rate":0.9149},{"month":"Jun-26","opening":6.6,"invoiced":2.5,"collected":2.4,"closing":6.7,"rate":0.96},{"month":"Jul-26","opening":6.7,"invoiced":2.55,"collected":2.45,"closing":6.8,"rate":0.9608},{"month":"Aug-26","opening":6.8,"invoiced":2.6,"collected":2.3,"closing":7.1,"rate":0.8846}],"ar_ytd":{"invoiced":14.35,"collected":13.35,"closing":6.7,"rate":0.9303},"ar_aging":[{"bucket":"Current — due next 30 days","amount":2.8,"share":0.4179},{"bucket":"31–60 days","amount":2,"share":0.2985},{"bucket":"60+ days / overdue","amount":1.9,"share":0.2836}],"ar_aging_total":6.7,"ar_by_contract":[],"ap_monthly":[{"month":"Jan-26","opening":2.95,"purchases":2,"payments":2.05,"closing":2.9,"dpo":43.5},{"month":"Feb-26","opening":2.9,"purchases":1.95,"payments":2.05,"closing":2.8,"dpo":43.0769},{"month":"Mar-26","opening":2.8,"purchases":2,"payments":2.1,"closing":2.7,"dpo":40.5},{"month":"Apr-26","opening":2.7,"purchases":2.1,"payments":1.9,"closing":2.9,"dpo":41.4286},{"month":"May-26","opening":2.9,"purchases":1.95,"payments":2.05,"closing":2.8,"dpo":43.0769},{"month":"Jun-26","opening":2.8,"purchases":2.05,"payments":2.15,"closing":2.7,"dpo":39.5122},{"month":"Jul-26","opening":2.7,"purchases":2,"payments":2.1,"closing":2.6,"dpo":39.0},{"month":"Aug-26","opening":2.6,"purchases":1.9,"payments":2.1,"closing":2.4,"dpo":37.8947}],"ap_ytd":{"purchases":12.05,"payments":12.3,"closing":2.7,"dpo":40.332},"ap_aging":[{"bucket":"Current — due next 30 days","amount":1.5,"share":0.5556},{"bucket":"31–60 days","amount":0.8,"share":0.2963},{"bucket":"60+ days / overdue","amount":0.4,"share":0.1481}],"ap_aging_total":2.7,"ap_by_vendor":[],"cash_tiles":{"month":{"cash":{"value":4.08,"note":"29.1 months runway"},"collections":{"value":2.4,"note":"Budget $2.50M invoiced"},"nwc":{"value":3.2,"note":"+$0.40M vs prior month"},"ar":{"value":7.1,"note":"88% collection rate"}},"ytd":{"cash":{"value":4.08,"note":"opened the year at $4.80M"},"collections":{"value":13.35,"note":"on $14.35M invoiced YTD"},"nwc":{"value":1.4,"note":"movement YTD · closing $2.50M"},"ar":{"value":7.1,"note":"from $5.70M at 1 Jan"}}},"bridge_month":[{"step":"Opening cash","kind":"total","value":4.4},{"step":"Collections","kind":"delta","value":2.4,"running":6.8},{"step":"Other inflows","kind":"delta","value":0.1,"running":6.9},{"step":"Operating costs","kind":"delta","value":-2.08,"running":4.82},{"step":"Capex","kind":"delta","value":-0.16,"running":4.66},{"step":"Debt service","kind":"delta","value":-0.16,"running":4.5},{"step":"Other outflows","kind":"delta","value":-0.42,"running":4.08},{"step":"Closing cash","kind":"total","value":4.08}],"bridge_ytd":[{"step":"Opening cash — 1 Jan 2026","kind":"total","value":4.8},{"step":"Collections","kind":"delta","value":13.35,"running":18.15},{"step":"Other inflows","kind":"delta","value":0.59,"running":18.74},{"step":"Operating costs","kind":"delta","value":-11.99,"running":6.75},{"step":"Capex","kind":"delta","value":-0.89,"running":5.86},{"step":"Debt service","kind":"delta","value":-0.89,"running":4.97},{"step":"Other outflows","kind":"delta","value":-0.89,"running":4.08},{"step":"Closing cash — 30 Jun 2026","kind":"total","value":4.08}],"cash_monthly":{"labels":["Jan-26","Feb-26","Mar-26","Apr-26","May-26","Jun-26"],"values":[4.08,4.08,4.08,4.08,4.08,4.08],"forecast":[false,false,false,false,false,false],"illustrative":[true,true,true,true,true,false]},"runway":{"burn_month":-0.32,"burn_3m":-0.14,"ytd_move":-0.72,"months":29.1429},"key_updates":[{"topic":"Revenue","text":"June revenue of $2.50M landed at 94.3% of budget, missing plan in five of the first six months of the year. YTD revenue of $14.35M is $0.90M (5.9%) behind budget."},{"topic":"Margin","text":"EBITDA of $0.36M gave a 14.4% margin against a 17.4% budget. YTD EBITDA of $2.16M is $0.44M behind plan; the gap is driven by revenue, not cost overrun."},{"topic":"Costs","text":"Cost control is holding — total costs ran at 97.7% of budget for the month and 96.4% YTD. The underspend has absorbed a meaningful share of the revenue shortfall."},{"topic":"Collections","text":"The June collection rate of 96.0% is the strongest month of the year so far. AR stands at $6.70M, of which $1.90M (28.4%) is now 60+ days overdue."},{"topic":"Working capital","text":"Net working capital has absorbed $1.40M of cash since 1 January, almost entirely through the AR build. Payables have been drawn down $0.20M over the same period."},{"topic":"Cash","text":"Cash closed at $4.08M, down $0.72M since 1 January. At the trailing three-month burn of $0.14M per month that is 29.1 months of runway, before the $1.50M current portion of Facility A."}]};
+
+/* ───────── helpers ───────── */
+const $ = (s, el=document) => el.querySelector(s);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fM  = (v, d=2) => v==null ? '—' : (v<0?'−':'') + '$' + Math.abs(v).toFixed(d) + 'M';
+const fMs = (v, d=2) => v==null ? '—' : (v<0?'−':'+') + '$' + Math.abs(v).toFixed(d) + 'M';
+const fP  = (v, d=1) => v==null ? '—' : (v*100).toFixed(d) + '%';
+const fPp = (v, d=1) => v==null ? '—' : (v<0?'−':'+') + Math.abs(v*100).toFixed(d) + ' pts';
+const f1  = v => v==null ? '—' : (v<0?'−':'') + Math.abs(v).toFixed(1);
+const f2  = v => v==null ? '—' : (v<0?'−':'') + Math.abs(v).toFixed(2);
+const f2s = v => v==null ? '—' : (v<0?'−':'+') + Math.abs(v).toFixed(2);
+const sum = a => a.reduce((s,v)=>s+(v||0),0);
+const SERIES = ['--s1','--s2','--s3','--s4','--s5'];
+const MONTH_FULL = {Jan:'January',Feb:'February',Mar:'March',Apr:'April',May:'May',Jun:'June',Jul:'July',Aug:'August',Sep:'September',Oct:'October',Nov:'November',Dec:'December'};
+const MONTHS_ALL = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const nice = (max, n=4) => { const raw=max/n, p=Math.pow(10,Math.floor(Math.log10(raw||1))), r=raw/p; const s=(r<=1?1:r<=2?2:r<=2.5?2.5:r<=5?5:10)*p; return {step:s, top:Math.ceil(max/s)*s}; };
+const shade = (i, n) => `rgba(${css('--shade-base')},${(1 - i*(0.66/Math.max(n-1,1))).toFixed(2)})`;
+/* label colour that always clears its fill */
+function inkOn(col){
+  const m=String(col).match(/#([0-9a-f]{6})/i);
+  if(!m) return css('--white');
+  const n=parseInt(m[1],16), L=(0.299*((n>>16)&255)+0.587*((n>>8)&255)+0.114*(n&255))/255;
+  return L>0.58 ? css('--dark-blue') : css('--white');
+}
+
+/* tooltip */
+const tip = $('#tip');
+function showTip(e, title, rows){
+  tip.replaceChildren();
+  if(title){ const t=document.createElement('div'); t.className='t'; t.textContent=title; tip.appendChild(t); }
+  for(const r of rows){ const d=document.createElement('div'); d.className='r';
+    const l=document.createElement('span'); if(r.color){ const i=document.createElement('i'); i.style.background=r.color; l.appendChild(i);} l.appendChild(document.createTextNode(r.label));
+    const b=document.createElement('b'); b.textContent=r.value; d.append(l,b); tip.appendChild(d); }
+  tip.style.opacity=1; moveTip(e);
+}
+function moveTip(e){ const w=tip.offsetWidth, h=tip.offsetHeight; let x=e.clientX+14, y=e.clientY+14; if(x+w>innerWidth-8) x=e.clientX-w-14; if(y+h>innerHeight-8) y=e.clientY-h-14; tip.style.left=x+'px'; tip.style.top=y+'px'; }
+function hideTip(){ tip.style.opacity=0; }
+function bind(el, title, rows){ el.addEventListener('pointerenter', e=>showTip(e,title,rows)); el.addEventListener('pointermove', moveTip); el.addEventListener('pointerleave', hideTip); el.setAttribute('tabindex','0'); el.addEventListener('focus', ()=>{const r=el.getBoundingClientRect(); showTip({clientX:r.left+r.width/2, clientY:r.top}, title, rows);}); el.addEventListener('blur', hideTip); }
+
+const svgEl = (tag, attrs={}) => { const el=document.createElementNS('http://www.w3.org/2000/svg', tag); for(const k in attrs) el.setAttribute(k, attrs[k]); return el; };
+const txt = (x,y,s,attrs={}) => { const t=svgEl('text',{x,y,...attrs}); t.textContent=s; return t; };
+const rect = (x,y,w,h,fill,extra={}) => svgEl('rect',{x,y,width:Math.max(w,0),height:Math.max(h,0),...(fill?{fill}:{}),...extra});
+function mount(id, svg){ $(id).replaceChildren(svg); }
+
+/* Fixed chart frames */
+const FR = {half:{W:560,H:250}, wide:{W:700,H:250}, narrow:{W:460,H:250}, full:{W:1160,H:250}};
+
+/* ───────── horizontal actual bars + budget marker ───────── */
+function bulletChart(id, rows, get, opts={}){
+  const {W,H}=FR.half, padL=150, padR=76, padT=6, padB=22;
+  const rowH=(H-padT-padB)/rows.length, bh=Math.min(18,rowH*0.55);
+  const vals=rows.map(get); const max=Math.max(...vals.flatMap(v=>[v.actual||0,v.budget||0]),0.01);
+  const {step,top}=nice(max*1.02,4); const sx=v=>padL+(v/top)*(W-padL-padR);
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`}); const g=svgEl('g',{class:'grid'});
+  for(let v=0; v<=top+1e-9; v+=step){ g.appendChild(svgEl('line',{x1:sx(v),x2:sx(v),y1:padT,y2:H-padB})); svg.appendChild(txt(sx(v),H-6,'$'+(+v.toFixed(2))+'M',{'text-anchor':'middle',class:'axis'})); }
+  svg.appendChild(g);
+  const markCol=css(opts.marker||'--s2');
+  rows.forEach((r,i)=>{
+    const v=vals[i], y=padT+i*rowH+(rowH-bh)/2, a=v.actual||0, b=v.budget||0;
+    const col=opts.shades?shade(i,rows.length):css('--s1');
+    svg.appendChild(txt(padL-10,y+bh/2+4,r.name,{'text-anchor':'end',class:'cat'}));
+    svg.appendChild(rect(sx(0),y,sx(a)-sx(0),bh,col,{class:'mark'}));
+    svg.appendChild(rect(sx(b)-1.5,y-4,3,bh+8,markCol));
+    svg.appendChild(txt(sx(Math.max(a,b))+8,y+bh/2+4,fM(a),{class:'lbl'}));
+    const hit=rect(padL,padT+i*rowH,W-padL,rowH,null,{class:'hit'}); svg.appendChild(hit);
+    bind(hit, r.name, [{label:'Actual',value:fM(a),color:col},{label:'Budget',value:fM(b),color:markCol},{label:'Variance',value:fMs(v.var)+' · '+fP(v.pct)+' of budget'}]);
+  });
+  svg.appendChild(svgEl('line',{x1:sx(0),x2:sx(0),y1:padT,y2:H-padB,class:'base'}));
+  mount(id,svg);
+}
+
+/* ───────── 100% stacked rows ───────── */
+function stackChart(id, rows, catNames){
+  const {W,H}=FR.full, padL=170, padR=16, padT=24, padB=14; const rowH=(H-padT-padB)/rows.length, bh=Math.min(34,rowH*0.55);
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`}); const inner=W-padL-padR, gap=2;
+  rows.forEach((row,ri)=>{
+    const y=padT+ri*rowH+(rowH-bh)/2; svg.appendChild(txt(padL-14,y+bh/2+4,row.label,{'text-anchor':'end',class:'cat'}));
+    let x=padL; const tot=sum(row.parts.map(p=>p.rev))||1;
+    row.parts.forEach((p,pi)=>{
+      const share=p.rev/tot; const w=Math.max(0,inner*share-(pi<row.parts.length-1?gap:0));
+      const col=css(SERIES[pi%5]); const seg=rect(x,y,w,bh,col,{class:'mark'}); svg.appendChild(seg);
+      const label=fP(share,0);
+      if(w>=46) svg.appendChild(txt(x+w/2,y+bh/2+4,label,{'text-anchor':'middle',style:`fill:${inkOn(col)};font-weight:600`}));
+      else { svg.appendChild(svgEl('line',{x1:x+w/2,x2:x+w/2,y1:y-3,y2:y-10,stroke:css('--gray-mid'),'stroke-width':1})); svg.appendChild(txt(x+w/2,y-13,label,{'text-anchor':'middle',class:'lbl',style:'font-size:10.5px'})); }
+      bind(seg,row.label,[{label:catNames[pi],value:fM(p.rev)+' · '+fP(share),color:col}]);
+      x+=w+gap;
+    });
+  });
+  mount(id,svg);
+}
+
+/* ───────── line with crosshair, optional forecast split ───────── */
+function lineChart(id, labels, series, opts={}){
+  const F=FR[opts.frame||'half'], W=F.W, H=F.H, padL=48, padR=18, padT=18, padB=26;
+  const all=series.flatMap(s=>s.values.filter(v=>v!=null)); if(!all.length){ mount(id,svgEl('svg',{viewBox:`0 0 ${W} ${H}`})); return; }
+  let lo=Math.min(...all), hi=Math.max(...all); if(opts.minZero!==false) lo=Math.min(0,lo);
+  const span=(hi-lo)||Math.abs(hi)||1; const {step}=nice(span*1.25,4);
+  const y0=Math.floor(lo/step)*step; let y1=Math.ceil(hi/step)*step; if(y1-hi<step*0.25) y1+=step;
+  const n=labels.length;
+  const sx=i=>n>1?padL+(i/(n-1))*(W-padL-padR):(padL+W-padR)/2;
+  const sy=v=>padT+(1-(v-y0)/(y1-y0))*(H-padT-padB);
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`});
+  const fcFrom=opts.forecastFrom;
+  if(fcFrom!=null && fcFrom>0 && fcFrom<n){
+    const xs=(sx(fcFrom-1)+sx(fcFrom))/2;
+    svg.appendChild(rect(xs,padT,W-padR-xs,H-padT-padB,null,{class:'fc-band'}));
+    svg.appendChild(svgEl('line',{x1:xs,x2:xs,y1:padT-8,y2:H-padB,class:'fc-line'}));
+    svg.appendChild(txt(xs+6,padT-1,'FORECAST →',{class:'fc-lbl'}));
+    svg.appendChild(txt(xs-6,padT-1,'← ACTUAL',{class:'act-lbl','text-anchor':'end'}));
+  }
+  const g=svgEl('g',{class:'grid'});
+  for(let v=y0; v<=y1+1e-9; v+=step){ g.appendChild(svgEl('line',{x1:padL,x2:W-padR,y1:sy(v),y2:sy(v)})); svg.appendChild(txt(padL-8,sy(v)+4,(opts.yFmt||f1)(v),{'text-anchor':'end',class:'axis'})); }
+  svg.appendChild(g);
+  labels.forEach((l,i)=>svg.appendChild(txt(sx(i),H-6,l,{'text-anchor':'middle',class:'axis'})));
+  series.forEach(s=>{
+    const col=css(s.color); const pts=s.values.map((v,i)=>v==null?null:[sx(i),sy(v)]);
+    const cut = fcFrom!=null ? fcFrom : n;
+    const seg=(a,b)=>pts.slice(a,b).filter(Boolean).map((p,i)=>(i?'L':'M')+p[0]+','+p[1]).join(' ');
+    if(s.area){ const fp=pts.slice(0,cut).filter(Boolean); if(fp.length>1) svg.appendChild(svgEl('path',{d:`M${fp[0][0]},${sy(y0)} `+fp.map(p=>`L${p[0]},${p[1]}`).join(' ')+` L${fp[fp.length-1][0]},${sy(y0)} Z`,fill:col,opacity:.1})); }
+    svg.appendChild(svgEl('path',{d:seg(0,cut),fill:'none',stroke:col,'stroke-width':2,'stroke-linejoin':'round','stroke-linecap':'round'}));
+    if(cut<n) svg.appendChild(svgEl('path',{d:seg(cut-1,n),fill:'none',stroke:col,'stroke-width':2,'stroke-dasharray':'3 6','stroke-linecap':'round'}));
+    pts.forEach((p,i)=>{ if(!p) return; const hollow=(s.hollow&&s.hollow[i])||(fcFrom!=null&&i>=fcFrom); const dim=opts.dim&&opts.dim[i];
+      svg.appendChild(svgEl('circle',{cx:p[0],cy:p[1],r:4.5,fill:hollow?css('--surface'):col,stroke:hollow?col:css('--surface'),'stroke-width':2,opacity:dim?.35:1})); });
+    const last=pts[cut-1]; if(last) svg.appendChild(txt(last[0],last[1]-11,(opts.yFmt||f1)(s.values[cut-1]),{'text-anchor':'middle',class:'lbl'}));
+    if(cut<n){ const le=pts[n-1]; if(le) svg.appendChild(txt(le[0],le[1]-11,(opts.yFmt||f1)(s.values[n-1]),{'text-anchor':'middle',class:'lbl',style:'fill:var(--ink-2)'})); }
+  });
+  const xh=svgEl('line',{y1:padT,y2:H-padB,class:'xh'}); svg.appendChild(xh);
+  const hit=rect(padL,padT,W-padL-padR,H-padT-padB,null,{class:'hit'}); svg.appendChild(hit);
+  hit.addEventListener('pointermove',e=>{ const r=svg.getBoundingClientRect(); const px=(e.clientX-r.left)/r.width*W; const i=n>1?Math.max(0,Math.min(n-1,Math.round((px-padL)/((W-padL-padR)/(n-1))))):0;
+    xh.setAttribute('x1',sx(i)); xh.setAttribute('x2',sx(i)); xh.style.opacity=1;
+    showTip(e,labels[i]+(fcFrom!=null&&i>=fcFrom?' · forecast':''),series.map(s=>({label:s.name+(s.hollow&&s.hollow[i]?' (illustrative)':''),value:(opts.yFmt||f1)(s.values[i]),color:css(s.color)}))); });
+  hit.addEventListener('pointerleave',()=>{ xh.style.opacity=0; hideTip(); });
+  mount(id,svg);
+}
+
+/* ───────── grouped columns ───────── */
+function columnChart(id, labels, series, opts={}){
+  const {W,H}=FR.half, padL=44, padR=10, padT=16, padB=26;
+  const max=Math.max(...series.flatMap(s=>s.values),0.01); const {step,top}=nice(max*1.1,4);
+  const sy=v=>padT+(1-v/top)*(H-padT-padB); const slot=(W-padL-padR)/labels.length; const bw=Math.min(18,(slot-12)/series.length); const gap=2;
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`}); const g=svgEl('g',{class:'grid'});
+  for(let v=0; v<=top+1e-9; v+=step){ g.appendChild(svgEl('line',{x1:padL,x2:W-padR,y1:sy(v),y2:sy(v)})); svg.appendChild(txt(padL-8,sy(v)+4,f1(v),{'text-anchor':'end',class:'axis'})); }
+  svg.appendChild(g);
+  labels.forEach((l,i)=>{
+    const cx=padL+slot*i+slot/2; svg.appendChild(txt(cx,H-6,l,{'text-anchor':'middle',class:'axis'}));
+    const gw=series.length*bw+(series.length-1)*gap; let x=cx-gw/2; const dim=opts.dim&&opts.dim[i];
+    series.forEach(s=>{ const v=s.values[i]||0; svg.appendChild(rect(x,sy(v),bw,sy(0)-sy(v),css(s.color),{class:'mark',opacity:dim?.28:1})); x+=bw+gap; });
+    const hit=rect(padL+slot*i,padT,slot,H-padT-padB,null,{class:'hit'}); svg.appendChild(hit);
+    bind(hit,l,series.map(s=>({label:s.name,value:(opts.fmt||fM)(s.values[i]),color:css(s.color)})));
+  });
+  svg.appendChild(svgEl('line',{x1:padL,x2:W-padR,y1:sy(0),y2:sy(0),class:'base'}));
+  mount(id,svg);
+}
+
+/* ───────── waterfall (full width) ───────── */
+function waterfall(id, steps){
+  const {W,H}=FR.full, padL=48, padR=12, padT=22, padB=30;
+  let run=0; const bars=steps.map(s=>{ if(s.kind==='total'){ run=s.value; return {...s,lo:0,hi:s.value}; } const lo=Math.min(run,run+s.value), hi=Math.max(run,run+s.value); run+=s.value; return {...s,lo,hi}; });
+  const max=Math.max(...bars.map(b=>b.hi)); const {step,top}=nice(max*1.08,4);
+  const sy=v=>padT+(1-v/top)*(H-padT-padB); const slot=(W-padL-padR)/steps.length; const bw=Math.min(40,slot-40);
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`}); const g=svgEl('g',{class:'grid'});
+  for(let v=0; v<=top+1e-9; v+=step){ g.appendChild(svgEl('line',{x1:padL,x2:W-padR,y1:sy(v),y2:sy(v)})); svg.appendChild(txt(padL-8,sy(v)+4,f1(v),{'text-anchor':'end',class:'axis'})); }
+  svg.appendChild(g);
+  bars.forEach((b,i)=>{
+    const cx=padL+slot*i+slot/2, x=cx-bw/2;
+    const col=b.kind==='total'?css('--c-total'):(b.value>=0?css('--c-in'):css('--c-out'));
+    svg.appendChild(rect(x,sy(b.hi),bw,Math.max(sy(b.lo)-sy(b.hi),1.5),col,{class:'mark'}));
+    if(i<bars.length-1){ const yy=sy(b.kind==='total'?b.value:(b.value>=0?b.hi:b.lo)); svg.appendChild(svgEl('line',{x1:x+bw,x2:cx+slot-bw/2,y1:yy,y2:yy,stroke:css('--gray-mid'),'stroke-width':1})); }
+    svg.appendChild(txt(cx,H-10,b.step.replace(/ — .*$/,''),{'text-anchor':'middle',class:'axis'}));
+    svg.appendChild(txt(cx,sy(b.hi)-6,b.kind==='total'?fM(b.value):fMs(b.value),{'text-anchor':'middle',class:'lbl'}));
+    const hit=rect(padL+slot*i,padT,slot,H-padT-padB,null,{class:'hit'}); svg.appendChild(hit);
+    bind(hit,b.step,[{label:b.kind==='total'?'Balance':'Flow',value:b.kind==='total'?fM(b.value):fMs(b.value),color:col},...(b.kind==='delta'?[{label:'Running balance',value:fM(b.running)}]:[])]);
+  });
+  svg.appendChild(svgEl('line',{x1:padL,x2:W-padR,y1:sy(0),y2:sy(0),class:'base'}));
+  mount(id,svg);
+}
+
+/* ───────── horizontal bars (aging / contracts / vendors) ───────── */
+function hbarChart(id, items, opts={}){
+  const F=FR[opts.frame||'half'], W=F.W, H=F.H, padL=opts.padL||170, padR=120, padT=6, padB=6;
+  const rowH=(H-padT-padB)/items.length, bh=Math.min(22,rowH*0.55);
+  const max=Math.max(...items.map(b=>b.amount),0.01); const sx=v=>padL+(v/max)*(W-padL-padR);
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`});
+  items.forEach((b,i)=>{ const y=padT+i*rowH+(rowH-bh)/2; const col=css(opts.colors?opts.colors[i]:(opts.color||'--s1'));
+    svg.appendChild(txt(padL-12,y+bh/2+4,b.label,{'text-anchor':'end',class:'cat'}));
+    const bar=rect(padL,y,sx(b.amount)-padL,bh,col,{class:'mark'}); svg.appendChild(bar);
+    svg.appendChild(txt(sx(b.amount)+8,y+bh/2+4,fM(b.amount)+(b.share!=null?'  ·  '+fP(b.share,0):''),{class:'lbl'}));
+    bind(bar,b.label,[{label:'Amount',value:fM(b.amount),color:col},...(b.share!=null?[{label:'Share of total',value:fP(b.share)}]:[]),...(opts.total!=null?[{label:'Total',value:fM(opts.total)}]:[])]); });
+  svg.appendChild(svgEl('line',{x1:padL,x2:padL,y1:padT,y2:H-padB,class:'base'}));
+  mount(id,svg);
+}
+
+/* ───────── tables ───────── */
+function avbTable(id, rows, pLabel, yLabel){
+  const head=`<thead><tr><th rowspan="2">Line</th><th class="grp" colspan="4">${esc(pLabel)}</th><th class="grp" colspan="4">Year-to-date · ${esc(yLabel)}</th></tr>
+  <tr><th>Actual</th><th>Budget</th><th>Var</th><th>% Bdgt</th><th>Actual</th><th>Budget</th><th>Var</th><th>% Bdgt</th></tr></thead>`;
+  const body=rows.map(r=>{
+    const isPct=r.kind==='pct'; const vc=v=>v==null||Math.abs(v)<1e-9?'':((r.cost?v<0:v>0)?'pos':'neg');
+    const cells=b=> isPct
+      ? `<td>${fP(b.actual)}</td><td>${fP(b.budget)}</td><td class="${vc(b.actual-b.budget)}">${fPp(b.actual-b.budget)}</td><td class="dim">—</td>`
+      : `<td>${f2(b.actual)}</td><td>${f2(b.budget)}</td><td class="${vc(b.var)}">${f2s(b.var)}</td><td>${fP(b.pct)}</td>`;
+    return `<tr class="${r.total?'total':''}${isPct?' pct':''}"><td>${r.sw?`<span class="sw" style="background:${r.sw}"></span>`:''}${esc(r.name)}</td>${cells(r.period)}${cells(r.ytd)}</tr>`;
+  }).join('');
+  $(id).innerHTML=head+'<tbody>'+body+'</tbody>';
+}
+function simpleTable(id, cols, rows){
+  const head='<thead><tr>'+cols.map(c=>`<th>${esc(c)}</th>`).join('')+'</tr></thead>';
+  const body=rows.map(r=>`<tr class="${r.cls||''}">`+r.cells.map((c,i)=>`<td class="${(r.cellCls&&r.cellCls[i])||''}">${c}</td>`).join('')+'</tr>').join('');
+  $(id).innerHTML=head+'<tbody>'+body+'</tbody>';
+}
+
+/* ───────── tiles: label · value · sub · one chip ───────── */
+const tile=(label,value,sub,chipHtml,challenge=false)=>
+  `<div class="tile${challenge?' challenge':''}"><div class="rule"></div><div class="label">${esc(label)}</div><div class="val">${value}</div><div class="sub">${sub||''}</div>${chipHtml||'<span class="chip flat">—</span>'}</div>`;
+const chip=(cls,text)=>`<span class="chip ${cls}">${text}</span>`;
+function varChip(v,pct,upIsGood=true){ if(v==null) return ''; const good=Math.abs(v)<1e-9?null:(upIsGood?v>0:v<0); return chip(good==null?'flat':good?'good':'bad', `${good==null?'●':v>0?'▲':'▼'} ${fP(pct)} of budget`); }
+function marginChip(a,b){ if(a==null||b==null) return ''; const d=a-b; return chip(Math.abs(d)<0.0005?'flat':d>0?'good':'bad', `${d>0?'▲':d<0?'▼':'●'} ${fPp(d)} vs budget`); }
+
+/* ═════════ period model (fiscal year July → June) ═════════ */
+const D=DATA, M=D.meta, MONTHS=M.months, LAST=M.period_index, FYS=M.fy_start_month||7;
+let R={i0:LAST, i1:LAST};
+const fq = mon => 'Q'+(Math.floor((((MONTHS_ALL.indexOf(mon)-(FYS-1))+12)%12)/3)+1);
+const fqPos = mon => (((MONTHS_ALL.indexOf(mon)-(FYS-1))+12)%12)%3;   /* 0 = first month of a quarter */
+const blk=(a,b)=>({actual:a, budget:b, var:(a==null||b==null)?null:a-b, pct:b?a/b:null});
+function periodOf(row){ if(R.i0===LAST&&R.i1===LAST) return row.month; if(R.i0===0&&R.i1===LAST) return row.ytd; if(!row.monthly) return row.month;
+  return blk(sum(row.monthly.actual.slice(R.i0,R.i1+1)), sum(row.monthly.budget.slice(R.i0,R.i1+1))); }
+function quarterOf(){ return (R.i1-R.i0===2 && fqPos(MONTHS[R.i0])===0 && fq(MONTHS[R.i0])===fq(MONTHS[R.i1])) ? fq(MONTHS[R.i0]) : null; }
+function periodLabel(){ if(R.i0===R.i1) return `${MONTH_FULL[MONTHS[R.i0]]||MONTHS[R.i0]} ${M.year}`; const q=quarterOf(); return `${MONTHS[R.i0]}–${MONTHS[R.i1]} ${M.year}`+(q?` · ${q} ${M.fiscal_year}`:''); }
+function periodKind(){ if(R.i0===LAST&&R.i1===LAST) return 'Month'; if(R.i0===0&&R.i1===LAST) return 'Year-to-date'; return quarterOf()?'Quarter':'Period'; }
+const shortP = () => periodLabel().replace(/ · Q\d.*$/,'');
+function monthRow(rows,i){ return rows.find(r=>r.month.startsWith(MONTHS[i])); }
+function rowsIn(rows){ return MONTHS.slice(R.i0,R.i1+1).map(m=>rows.find(r=>r.month.startsWith(m))).filter(Boolean); }
+
+/* period selector */
+(function buildSelector(){
+  const from=$('#p-from'), to=$('#p-to'), quick=$('#quick');
+  MONTHS.forEach((m,i)=>{ from.add(new Option(`${m} ${M.year}`,i)); to.add(new Option(`${m} ${M.year}`,i)); });
+  const opts=[['Month',[LAST,LAST]]]; const seen=new Set();
+  MONTHS.forEach(m=>{ const q=fq(m); if(seen.has(q)) return; seen.add(q);
+    const idx=MONTHS.map((mm,j)=>fq(mm)===q?j:-1).filter(j=>j>=0);
+    if(idx.length>1) opts.push([q+(idx.length<3?'*':''),[idx[0],idx[idx.length-1]]]); });
+  opts.push(['YTD',[0,LAST]]);
+  opts.forEach(([name,[a,b]])=>{ const btn=document.createElement('button'); btn.type='button'; btn.textContent=name;
+    btn.title = name.endsWith('*') ? 'Partial quarter — only the months closed so far' : '';
+    btn.dataset.a=a; btn.dataset.b=b; btn.setAttribute('aria-pressed','false');
+    btn.addEventListener('click',()=>{ R={i0:a,i1:b}; sync(); render(); }); quick.appendChild(btn); });
+  from.addEventListener('change',()=>{ R.i0=+from.value; if(R.i1<R.i0) R.i1=R.i0; sync(); render(); });
+  to.addEventListener('change',()=>{ R.i1=+to.value; if(R.i0>R.i1) R.i0=R.i1; sync(); render(); });
+  function sync(){ from.value=R.i0; to.value=R.i1; quick.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', +b.dataset.a===R.i0&&+b.dataset.b===R.i1)); }
+  sync();
+})();
+
+/* ═════════ render ═════════ */
+function render(){
+  const pLab=periodLabel(), kind=periodKind(), asAt=`30 ${MONTH_FULL[MONTHS[R.i1]]||MONTHS[R.i1]} ${M.year}`;
+  $('#m-gen').textContent=M.generated; $('#m-fy').textContent=M.fiscal_year;
+  $('#f-src').textContent=M.source; $('#f-gen').textContent=M.generated;
+  $('#m-ytd').textContent=M.ytd_label; $('#p-label').textContent=pLab;
+
+  /* P&L for the selected period */
+  const P=D.pl.map(r=>({...r})); const byName=n=>P.find(r=>r.name===n);
+  P.forEach(r=>{ if(r.kind==='value') r.period=periodOf(r); });
+  const rev=byName('Revenue'), gp=byName('Gross profit'), cp=byName('Contribution profit'), eb=byName('EBITDA');
+  const totRow=D.costs.find(c=>c.name==='Total costs');
+  const costTot={period:periodOf(totRow), ytd:totRow.ytd};
+  const pctOf=(num,den)=>({actual:num.actual/den.actual, budget:num.budget/den.budget});
+  const gmP=pctOf(gp.period,rev.period), cmP=pctOf(cp.period,rev.period), ebP=pctOf(eb.period,rev.period);
+  const gmY=pctOf(gp.ytd,rev.ytd),      cmY=pctOf(cp.ytd,rev.ytd),      ebY=pctOf(eb.ytd,rev.ytd);
+  byName('Gross profit margin').period=gmP; byName('Contribution margin').period=cmP; byName('EBITDA margin').period=ebP;
+
+  /* Executive summary */
+  $('#es-scope').textContent=`${kind} · ${pLab}`;
+  $('#p-m-kind').textContent=kind; $('#p-m-when').textContent=pLab;
+  $('#p-y-when').textContent=M.ytd_label; $('#p-c-when').textContent=`${shortP()} · balances as at ${asAt}`;
+  const plTiles=(rv,ct,g,e,gm,em)=>
+    tile('Revenue',     fM(rv.actual), `Budget ${fM(rv.budget)}`, varChip(rv.var, rv.pct, true),  rv.var<0) +
+    tile('Total costs', fM(ct.actual), `Budget ${fM(ct.budget)}`, varChip(ct.var, ct.pct, false), ct.var>0) +
+    tile('Gross profit',fM(g.actual),  `${fP(gm.actual)} margin · budget ${fP(gm.budget)}`, marginChip(gm.actual,gm.budget), gm.actual<gm.budget) +
+    tile('EBITDA',      fM(e.actual),  `${fP(em.actual)} margin · budget ${fP(em.budget)}`, marginChip(em.actual,em.budget), em.actual<em.budget);
+  $('#tiles-m').innerHTML=plTiles(rev.period,costTot.period,gp.period,eb.period,gmP,ebP);
+  $('#tiles-y').innerHTML=plTiles(rev.ytd,costTot.ytd,gp.ytd,eb.ytd,gmY,ebY);
+
+  const arR=rowsIn(D.ar_monthly), apR=rowsIn(D.ap_monthly), wcR=rowsIn(D.wc_monthly);
+  const arEnd=arR.at(-1), apEnd=apR.at(-1), wcEnd=wcR.at(-1);
+  const wcPrev=D.wc_monthly[Math.max(0,D.wc_monthly.indexOf(monthRow(D.wc_monthly,R.i0))-1)];
+  const inv=sum(arR.map(r=>r.invoiced)), col=sum(arR.map(r=>r.collected)), rate=inv?col/inv:null;
+  const pay=sum(apR.map(r=>r.payments));
+  const nwcMove = R.i0===R.i1 ? wcEnd.movement : wcEnd.nwc - (R.i0===0 ? D.wc_ytd.find(w=>/net working/i.test(w.item)).open : wcPrev.nwc);
+  const cm=D.cash_monthly;
+  const ci=cm.labels.findIndex((l,j)=>l.startsWith(MONTHS[R.i1]) && !cm.forecast[j]);
+  const cashEnd = ci>=0 ? cm.values[ci] : D.cash_tiles.month.cash.value;
+  const Rw=D.runway, over60=D.ar_aging[2];
+  $('#tiles-c').innerHTML =
+    tile('Cash balance',    fM(cashEnd),                                  `as at ${asAt}`,                 chip(Rw.ytd_move<0?'bad':'good', `${Rw.ytd_move<0?'▼':'▲'} ${fMs(Rw.ytd_move)} YTD`), Rw.ytd_move<0) +
+    tile('Cash runway',     `${Rw.months==null?'—':Rw.months.toFixed(1)}<small>mo</small>`, `at ${fM(Math.abs(Rw.burn_3m))} monthly burn`, chip(Rw.months<12?'bad':'good', `${Rw.months<12?'▼ under':'▲ over'} 12 months`), Rw.months<12) +
+    tile('Collections',     fM(col),                                      `on ${fM(inv)} invoiced`,        chip(rate>=0.9?'good':'bad', `${rate>=0.9?'▲':'▼'} ${fP(rate)} collected`), rate<0.9) +
+    tile('Payments made',   fM(pay),                                      `${f1(apEnd.dpo)} days payable`, chip('flat', `${fM(apEnd.closing)} payables open`)) +
+    tile('AR outstanding',  fM(arEnd.closing),                            `from ${fM(arR[0].opening)} opening`, chip(over60.share>0.25?'bad':'flat', `${fP(over60.share,0)} overdue 60+ days`), over60.share>0.25) +
+    tile('Working capital', fM(wcEnd.nwc),                                `net position`,                  chip(nwcMove<=0?'good':'bad', `${nwcMove<=0?'▼ released':'▲ absorbed'} ${fM(Math.abs(nwcMove))}`), nwcMove>0);
+
+  /* 1 · P&L */
+  $('#pl-scope').textContent=`${kind} · ${pLab}`; $('#rev-scope').textContent=shortP(); $('#cost-scope').textContent=shortP();
+  const revRows=D.revenue.filter(r=>!r.total), costRows=D.costs.filter(r=>r.name!=='Total costs');
+  bulletChart('#ch-rev', revRows, periodOf);
+  bulletChart('#ch-cost', costRows, periodOf, {shades:true, marker:'--s3'});
+  $('#lg-cost').innerHTML = costRows.map((r,i)=>`<span><i style="background:${shade(i,costRows.length)}"></i>${esc(r.name)}</span>`).join('')
+    + `<span><i class="mark" style="background:var(--s3)"></i>Budget</span>`;
+  const pHead=`${kind} · ${pLab}`;
+  avbTable('#t-pl', P, pHead, M.ytd_label);
+  avbTable('#t-rev',  D.revenue.map((r,i)=>({...r, period:periodOf(r), cost:false, sw:r.total?null:css(SERIES[i%5])})), pHead, M.ytd_label);
+  avbTable('#t-cost', D.costs.map((r,i)=>({...r, period:periodOf(r), cost:true, total:r.name==='Total costs', sw:r.name==='Total costs'?null:shade(i,costRows.length)})), pHead, M.ytd_label);
+  const cats=revRows.map(r=>r.name);
+  $('#lg-mix').innerHTML=cats.map((c,i)=>`<span><i style="background:${css(SERIES[i%5])}"></i>${esc(c)}</span>`).join('');
+  stackChart('#ch-mix', [
+    {label:shortP(),                parts:revRows.map(r=>({rev:periodOf(r).actual}))},
+    {label:'YTD · '+M.ytd_label,    parts:revRows.map(r=>({rev:r.ytd.actual}))},
+  ], cats);
+
+  /* 2 · Working capital movements */
+  simpleTable('#t-wc', ['Month','Receivables','Payables','Deferred rev.','Other WC','Net WC','Movement'],
+    D.wc_monthly.map(r=>{ const idx=MONTHS.indexOf(r.month.slice(0,3)); const fc=r.forecast||idx<0||idx>LAST; const inR=!fc&&idx>=R.i0&&idx<=R.i1;
+      return {cls:(fc?'fc':'')+(inR?' sel':''), cells:[esc(r.month),f1(r.ar),f1(r.ap),f1(r.deferred),f1(r.other),f1(r.nwc),f2s(r.movement)],
+              cellCls:['','','','','','',r.movement>0?'neg':r.movement<0?'pos':'']}; }));
+  $('#wc-note').textContent=`Rows in the selected period are shaded. Months after ${M.period} are forecast (F). A rise in net working capital consumes cash.`;
+
+  $('#ar-aging-scope').textContent=`as at ${asAt} · total ${fM(D.ar_aging_total)}`;
+  hbarChart('#ch-ar-aging', D.ar_aging.map(b=>({label:b.bucket.replace(' — ',' · '),amount:b.amount,share:b.share})), {frame:'wide', padL:215, colors:['--s1','--s2','--s3'], total:D.ar_aging_total});
+  const arcTot=sum(D.ar_by_contract.map(c=>c.amount));
+  $('#ar-contract-scope').textContent=`as at ${asAt} · total ${fM(arcTot)}`;
+  hbarChart('#ch-ar-contract', D.ar_by_contract.map(c=>({label:c.contract,amount:c.amount,share:c.amount/arcTot})), {frame:'narrow', padL:92});
+
+  const arAll=MONTHS.map(m=>D.ar_monthly.find(r=>r.month.startsWith(m))).filter(Boolean);
+  const apAll=MONTHS.map(m=>D.ap_monthly.find(r=>r.month.startsWith(m))).filter(Boolean);
+  const dim=arAll.map((r,i)=>i<R.i0||i>R.i1);
+  $('#ar-scope').textContent=`USD M · year to date · ${shortP()} emphasised`;
+  $('#ap-scope').textContent=`USD M · year to date · ${shortP()} emphasised`;
+  columnChart('#ch-ar', arAll.map(r=>r.month), [{name:'Invoiced / billed',values:arAll.map(r=>r.invoiced),color:'--s2'},{name:'Collected',values:arAll.map(r=>r.collected),color:'--s1'}], {dim});
+  columnChart('#ch-ap', apAll.map(r=>r.month), [{name:'Purchases / accruals',values:apAll.map(r=>r.purchases),color:'--s2'},{name:'Payments made',values:apAll.map(r=>r.payments),color:'--s3'}], {dim});
+
+  $('#ap-aging-scope').textContent=`as at ${asAt} · total ${fM(D.ap_aging_total)}`;
+  hbarChart('#ch-ap-aging', D.ap_aging.map(b=>({label:b.bucket.replace(' — ',' · '),amount:b.amount,share:b.share})), {frame:'wide', padL:215, colors:['--s1','--s2','--s3'], total:D.ap_aging_total});
+  const venTot=sum(D.ap_by_vendor.map(v=>v.amount));
+  $('#ap-vendor-scope').textContent=`${M.period} · total ${fM(venTot)}`;
+  hbarChart('#ch-ap-vendor', D.ap_by_vendor.map(v=>({label:v.vendor,amount:v.amount,share:v.amount/venTot})), {frame:'narrow', padL:104, color:'--s3'});
+
+  /* 3 · Cash & liquidity */
+  const ct=D.cash_tiles, bM=D.bridge_month, bY=D.bridge_ytd;
+  const openM=bM[0].value, openY=bY[0].value, closeM=bM.at(-1).value;
+  const arLast=monthRow(D.ar_monthly,LAST);
+  $('#c-m-when').textContent=M.period; $('#c-y-when').textContent=M.ytd_label;
+  $('#ctiles-m').innerHTML =
+    tile('Cash balance',  fM(closeM),                                   `Opened at ${fM(openM)}`,               chip(closeM-openM>=0?'good':'bad', `${closeM-openM>=0?'▲':'▼'} ${fMs(closeM-openM)} in month`), closeM-openM<0) +
+    tile('Cash runway',   `${Rw.months==null?'—':Rw.months.toFixed(1)}<small>months</small>`, `Cash ÷ 3-month burn`, chip(Rw.months<12?'bad':'good', `${fM(Math.abs(Rw.burn_3m))} monthly burn`), Rw.months<12) +
+    tile('Monthly burn',  fM(Rw.burn_month),                            `Net movement in month`,                chip(Rw.burn_month<0?'bad':'good', `${Rw.burn_month<0?'▼ net outflow':'▲ net inflow'}`), Rw.burn_month<0) +
+    tile('Collections',   fM(ct.month.collections.value),               `On ${fM(arLast.invoiced)} invoiced`,   chip(arLast.rate>=0.9?'good':'bad', `${arLast.rate>=0.9?'▲':'▼'} ${fP(arLast.rate)} collected`), arLast.rate<0.9);
+  $('#ctiles-y').innerHTML =
+    tile('Cash balance',      fM(closeM),           `Opened the year at ${fM(openY)}`, chip(closeM-openY>=0?'good':'bad', `${closeM-openY>=0?'▲':'▼'} ${fMs(closeM-openY)} since 1 Jan`), closeM-openY<0) +
+    tile('3-month avg burn',  fM(Rw.burn_3m),       `Average net movement`,            chip('flat', `Basis for runway`)) +
+    tile('YTD net movement',  fMs(Rw.ytd_move),     `1 Jan → ${asAt}`,                 chip(Rw.ytd_move<0?'bad':'good', `${Rw.ytd_move<0?'▼ consumed':'▲ generated'} ${fM(Math.abs(Rw.ytd_move))}`), Rw.ytd_move<0) +
+    tile('Collections',       fM(ct.ytd.collections.value), `On ${fM(D.ar_ytd.invoiced)} invoiced`, chip(D.ar_ytd.rate>=0.9?'good':'bad', `${D.ar_ytd.rate>=0.9?'▲':'▼'} ${fP(D.ar_ytd.rate)} collected`), D.ar_ytd.rate<0.9);
+  $('#br-m-scope').textContent=`USD M · ${M.period}`; $('#br-y-scope').textContent=`USD M · ${M.ytd_label}`;
+  waterfall('#ch-br-m', bM); waterfall('#ch-br-y', bY);
+
+  const fcFrom=cm.forecast.indexOf(true);
+  $('#cash-scope').textContent=`USD M · closing · actual to ${M.period}, forecast thereafter`;
+  lineChart('#ch-cash', cm.labels, [{name:'Closing cash', values:cm.values, color:'--s1', area:true, hollow:cm.illustrative}],
+            {yFmt:v=>'$'+f2(v)+'M', minZero:false, frame:'full', forecastFrom:fcFrom>=0?fcFrom:null});
+  $('#cash-flag').hidden=!cm.illustrative.some(Boolean);
+
+  /* 4 · Key updates */
+  $('#updates').innerHTML=D.key_updates.map(u=>`<div class="upd"><div class="eyebrow">${esc(u.topic)}</div><p>${esc(u.text)}</p></div>`).join('');
+}
+render();
+
+/* rail highlighting */
+(function(){ const links=[...document.querySelectorAll('nav.rail a')], secs=[...document.querySelectorAll('section.sec')];
+  const io=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting) links.forEach(l=>l.classList.toggle('on', l.getAttribute('href')==='#'+e.target.id)); }),{rootMargin:'-20% 0px -70% 0px'});
+  secs.forEach(s=>io.observe(s)); })();
+</script>
+
+</body></html>
