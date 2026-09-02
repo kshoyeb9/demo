@@ -53,6 +53,8 @@ ws = wb["P&L Performance"]
 rows = list(ws.iter_rows(min_row=1, max_row=ws.max_row, values_only=True))
 
 def row(n):          # 1-indexed access
+    if n < 1 or n > len(rows):
+        return ()
     return rows[n - 1]
 
 def v(n, col):       # safe cell read
@@ -121,6 +123,27 @@ def parse_avb(row_n, col_offset=0):
                   "var": rnd(a_y-b_y,4), "pct": rnd(a_y/b_y,4) if b_y else None},
     }
 
+def _sum_rows(rows_list, key1, key2):
+    """Sum actual/budget across non-total rows — used when total row contains formulas."""
+    return (
+        round(sum(r[key1][key2] or 0 for r in rows_list if not r["total"]), 4)
+        or 0
+    )
+
+def _fix_total(entry, detail_rows):
+    """If the total row has zero actual (formula not cached), derive from detail rows."""
+    for period in ("month", "ytd"):
+        a = entry[period]["actual"]
+        b = entry[period]["budget"]
+        if not a:
+            a = round(sum(r[period]["actual"] or 0 for r in detail_rows if not r["total"]), 4)
+            entry[period]["actual"] = a
+        if not b:
+            b = round(sum(r[period]["budget"] or 0 for r in detail_rows if not r["total"]), 4)
+            entry[period]["budget"] = b
+        entry[period]["var"] = round(a - b, 4)
+        entry[period]["pct"] = round(a / b, 4) if b else None
+
 # ── Revenue by BU (rows 15-20) ────────────────────────────────────────────────
 revenue = []
 r_n = 15
@@ -140,6 +163,19 @@ while True:
         break
     r_n += 1
 
+# If total row had uncached formulas, derive from detail rows
+if revenue and revenue[-1]["total"]:
+    _fix_total(revenue[-1], revenue[:-1])
+elif revenue:
+    # Add synthetic total if the scan never hit a "total" row
+    am = round(sum(r["month"]["actual"] or 0 for r in revenue), 4)
+    bm = round(sum(r["month"]["budget"] or 0 for r in revenue), 4)
+    ay = round(sum(r["ytd"]["actual"]   or 0 for r in revenue), 4)
+    by = round(sum(r["ytd"]["budget"]   or 0 for r in revenue), 4)
+    revenue.append({"name": "Total Revenue", "total": True, "monthly": None,
+                    "month": {"actual":am,"budget":bm,"var":round(am-bm,4),"pct":round(am/bm,4) if bm else None},
+                    "ytd":   {"actual":ay,"budget":by,"var":round(ay-by,4),"pct":round(ay/by,4) if by else None}})
+
 # ── Costs by category (rows 24-29) ───────────────────────────────────────────
 costs = []
 r_n = 24
@@ -158,6 +194,9 @@ while True:
     if is_total:
         break
     r_n += 1
+
+if costs and costs[-1]["total"]:
+    _fix_total(costs[-1], costs[:-1])
 
 # ── P&L summary rows (rows 34-41) ────────────────────────────────────────────
 # Fixed structure: Revenue, Direct costs, Gross profit, Operating expenses, EBITDA
@@ -200,11 +239,25 @@ def _pl_entry(name, kind="value", cost=False, total=False):
         return None
     return {"name": name, "kind": kind, **d, "cost": cost, "total": total, "monthly": None}
 
-# Gross margin % from rows 40-41 (only actual, no budget in Excel → derive)
+# Gross margin % from rows 40-41; if formula not cached, derive from P&L rows
 gm_act_m  = rnd(nz(v(40, 1)), 4)
 gm_act_y  = rnd(nz(v(40, 5)), 4)
 ebi_act_m = rnd(nz(v(41, 1)), 4)
 ebi_act_y = rnd(nz(v(41, 5)), 4)
+
+gp_row_fallback  = pl_map.get("Gross profit / contribution") or pl_map.get("Gross profit")
+ebi_row_fallback = pl_map.get("EBITDA")
+rev_act_m_fb = rev_row.get("month",{}).get("actual") or 1
+rev_act_y_fb = rev_row.get("ytd",{}).get("actual")   or 1
+
+if not gm_act_m and gp_row_fallback:
+    gm_act_m = rnd((gp_row_fallback["month"]["actual"] or 0) / rev_act_m_fb, 4)
+if not gm_act_y and gp_row_fallback:
+    gm_act_y = rnd((gp_row_fallback["ytd"]["actual"]   or 0) / rev_act_y_fb, 4)
+if not ebi_act_m and ebi_row_fallback:
+    ebi_act_m = rnd((ebi_row_fallback["month"]["actual"] or 0) / rev_act_m_fb, 4)
+if not ebi_act_y and ebi_row_fallback:
+    ebi_act_y = rnd((ebi_row_fallback["ytd"]["actual"]   or 0) / rev_act_y_fb, 4)
 
 # Budget margins: gp_budget / rev_budget
 rev_bgt_m = rev_row.get("month",{}).get("budget") or 1
