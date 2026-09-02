@@ -1,561 +1,771 @@
 """
-make_template.py — Generates pl_only_final.xlsx pre-filled with dummy data.
-Run once to create the template, then update the yellow cells each month.
+make_template.py — Generates noon_dashboard_input.xlsx, the monthly input workbook
+for the Noon P&L Performance dashboard.
+
+Every chart in the dashboard has a dedicated table here. Tables are located by
+their header text (not by row number), so inserting or deleting rows is safe.
 
 Usage:
-    python make_template.py
+    python make_template.py [--out noon_dashboard_input.xlsx]
 """
 
-from pathlib import Path
-import openpyxl
-from openpyxl.styles import (PatternFill, Font, Alignment, Border, Side,
-                              numbers as xl_numbers)
+import argparse
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-OUT = "pl_only_final.xlsx"
+ap = argparse.ArgumentParser()
+ap.add_argument("--out", default="noon_dashboard_input.xlsx")
+args = ap.parse_args()
 
-wb = openpyxl.Workbook()
-ws = wb.active
-ws.title = "P&L Performance"
+# ── Style tokens ──────────────────────────────────────────────────────────────
+FONT      = "Arial"
+C_HEADER  = "11203A"   # Noon dark blue — section bars
+C_SUBHDR  = "D9E1F2"   # column header fill
+C_INPUT   = "FFF3CD"   # yellow — cells the user edits
+C_CALC    = "F2F2F2"   # grey — derived/reference
+C_TOTAL   = "BDD7EE"   # blue — totals
+C_WHITE   = "FFFFFF"
+BLUE_TXT  = "0000FF"   # hardcoded input convention
+BLACK_TXT = "000000"
 
-# ── Colour palette ────────────────────────────────────────────────────────────
-C_DARK   = "11203A"   # Noon dark blue
-C_GREEN  = "17E4A1"   # Noon green
-C_AMBER  = "FFF3CD"   # input cell highlight
-C_HEADER = "1F3864"   # section header
-C_SUBHDR = "D9E1F2"   # column header row
-C_TOTAL  = "BDD7EE"   # total rows
-C_WHITE  = "FFFFFF"
-C_LIGHT  = "F2F2F2"
+FMT_M    = '$#,##0.00;($#,##0.00);-'    # USD millions
+FMT_MS   = '+$#,##0.00;-$#,##0.00;-'    # signed
+FMT_PCT  = '0.0%'
+FMT_NUM  = '#,##0.0'
 
-FMT_2D  = '#,##0.00'
-FMT_PCT = '0.0%'
-FMT_INT = '#,##0'
+def F(bold=False, color=BLACK_TXT, size=10, italic=False):
+    return Font(name=FONT, bold=bold, color=color, size=size, italic=italic)
+def fill(hex_):
+    return PatternFill("solid", fgColor=hex_)
+def A(h="left", wrap=False, v="center"):
+    return Alignment(horizontal=h, vertical=v, wrap_text=wrap)
 
-def fill(hex_): return PatternFill("solid", fgColor=hex_)
-def font(bold=False, color="000000", size=10):
-    return Font(bold=bold, color=color, size=size)
-def align(h="left", wrap=False):
-    return Alignment(horizontal=h, vertical="center", wrap_text=wrap)
-def thin_border():
-    s = Side(style="thin")
-    return Border(bottom=s)
+THIN = Side(style="thin", color="BFBFBF")
+BOX  = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 
-def section_header(row, text):
+wb = Workbook()
+wb.remove(wb.active)
+
+def section_bar(ws, row, text, width=8):
     c = ws.cell(row=row, column=1, value=text)
-    c.font   = Font(bold=True, color=C_WHITE, size=10)
-    c.fill   = fill(C_HEADER)
-    c.alignment = align("left")
-    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=28)
+    c.font = F(bold=True, color=C_WHITE, size=11)
+    c.fill = fill(C_HEADER)
+    c.alignment = A("left")
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=width)
+    ws.row_dimensions[row].height = 20
 
-def col_headers(row, labels, start_col=1):
-    for i, txt in enumerate(labels):
-        c = ws.cell(row=row, column=start_col+i, value=txt)
-        c.font      = font(bold=True, size=9)
+def note(ws, row, text, col=1):
+    c = ws.cell(row=row, column=col, value=text)
+    c.font = F(size=9, italic=True, color="595959")
+    return c
+
+def headers(ws, row, labels, start=1):
+    for i, t in enumerate(labels):
+        c = ws.cell(row=row, column=start + i, value=t)
+        c.font      = F(bold=True, size=10)
         c.fill      = fill(C_SUBHDR)
-        c.alignment = align("center")
+        c.alignment = A("center", wrap=True)
+        c.border    = BOX
+    ws.row_dimensions[row].height = 28
 
-def data_row(row, values, start_col=1, total=False, input_=False):
-    bg = C_TOTAL if total else (C_AMBER if input_ else C_WHITE)
-    for i, v in enumerate(values):
-        c = ws.cell(row=row, column=start_col+i, value=v)
-        c.fill = fill(bg)
-        if isinstance(v, float):
-            if abs(v) < 5:
-                c.number_format = FMT_2D
-            else:
-                c.number_format = FMT_2D
-        c.alignment = align("right" if isinstance(v,(int,float)) else "left")
-        if total:
-            c.font = font(bold=True)
+def put(ws, row, col, val, *, kind="input", fmt=None, bold=False, wrap=False, halign=None):
+    """kind: input (yellow/blue) | calc (grey) | total (blue) | text | plain"""
+    c = ws.cell(row=row, column=col, value=val)
+    c.border = BOX
+    c.font   = F(bold=bold, color=BLUE_TXT if kind == "input" and isinstance(val, (int, float)) else BLACK_TXT)
+    if kind == "input":  c.fill = fill(C_INPUT)
+    elif kind == "calc": c.fill = fill(C_CALC)
+    elif kind == "total":
+        c.fill = fill(C_TOTAL); c.font = F(bold=True)
+    else:                c.fill = fill(C_WHITE)
+    if fmt: c.number_format = fmt
+    c.alignment = A(halign or ("right" if isinstance(val, (int, float)) else "left"), wrap=wrap)
+    return c
 
-def pct_row(row, values, start_col=1):
-    for i, v in enumerate(values):
-        c = ws.cell(row=row, column=start_col+i, value=v)
-        c.fill = fill(C_LIGHT)
-        if isinstance(v, float):
-            c.number_format = FMT_PCT
-        c.alignment = align("right" if isinstance(v,(int,float)) else "left")
-        c.font = font(size=9)
+def widths(ws, spec):
+    for col, w in spec.items():
+        ws.column_dimensions[col].width = w
 
-# ── Column widths ─────────────────────────────────────────────────────────────
-ws.column_dimensions["A"].width = 36
-for col in range(2, 30):
-    ws.column_dimensions[get_column_letter(col)].width = 11
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# TITLE ROW 1
-# ═══════════════════════════════════════════════════════════════════════════════
-c = ws.cell(row=1, column=1, value="Noon Academy — P&L Performance Dashboard")
-c.font = Font(bold=True, size=14, color=C_DARK)
-ws.merge_cells("A1:Z1")
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 1 — INSTRUCTIONS
+# ══════════════════════════════════════════════════════════════════════════════
+ws = wb.create_sheet("Instructions")
+widths(ws, {"A": 4, "B": 26, "C": 78, "D": 30})
 
-c = ws.cell(row=2, column=1, value="Update yellow cells each month, then run: python etl_pl.py --file pl_only_final.xlsx")
-c.font = Font(size=9, color="595959", italic=True)
-ws.merge_cells("A2:Z2")
+ws["B2"] = "Noon Academy — Dashboard Input Workbook"
+ws["B2"].font = Font(name=FONT, bold=True, size=16, color=C_HEADER)
+ws["B3"] = "Fill this workbook each month, then regenerate the dashboard."
+ws["B3"].font = F(size=10, italic=True, color="595959")
 
-ws.row_dimensions[3].height = 8
+r = 5
+section_bar(ws, r, "  HOW TO USE THIS WORKBOOK", width=4); r += 2
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# ROW 5 — PERIOD HEADERS  (etl reads col 10 and col 20)
-# ═══════════════════════════════════════════════════════════════════════════════
-ws.cell(row=4, column=1,  value="▶ Update period label below (cell K5 and U5) each month")
-ws.cell(row=4, column=1).font = Font(size=9, italic=True, color="595959")
-
-# K5 = col 11 in openpyxl (1-indexed), but etl reads col index 10 (0-indexed) → openpyxl col 11
-ws.cell(row=5, column=11, value="Key Metrics — June 2026  (Month)").fill = fill(C_AMBER)
-ws.cell(row=5, column=21, value="Key Metrics — Year-to-Date  (Jan–Jun 2026)").fill = fill(C_AMBER)
-ws.cell(row=5, column=11).font = font(bold=True, size=10)
-ws.cell(row=5, column=21).font = font(bold=True, size=10)
-ws.merge_cells(start_row=5, start_column=11, end_row=5, end_column=19)
-ws.merge_cells(start_row=5, start_column=21, end_row=5, end_column=28)
-
-ws.row_dimensions[6].height = 6
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# ROWS 7-13 — column headers for P&L sections
-# ═══════════════════════════════════════════════════════════════════════════════
-# Two blocks: Month (cols B-I = cols 2-9) and YTD (cols L-S = cols 12-19)
-ws.cell(row=7, column=2,  value="← MONTH (latest period) →").font  = Font(bold=True, size=9, color=C_HEADER)
-ws.cell(row=7, column=12, value="← YEAR-TO-DATE →").font           = Font(bold=True, size=9, color=C_HEADER)
-
-HDR = ["Actual", "Budget", "Variance", "% Bdgt"]
-col_headers(8, [""] + HDR + ["",""] + HDR, start_col=1)
-# Col A blank, B-E = Month, F-G blank, H-K blank → adjust:
-# etl reads: col 1=act_mo, col 2=bgt_mo, col 5=act_ytd, col 6=bgt_ytd
-# So: col B(2)=Act_Mo, col C(3)=Bgt_Mo, col D(4)=Var_Mo, col E(5)=Pct_Mo
-#          col F(6)=Act_YTD, col G(7)=Bgt_YTD, col H(8)=Var_YTD, col I(9)=Pct_YTD
-# Wait - etl uses 0-indexed from the tuple: col0=A, col1=B, col2=C, col5=F, col6=G
-# 0-idx: 0=A 1=B 2=C 3=D 4=E 5=F 6=G 7=H 8=I
-# So headers:
-#  A=name, B=Act_Mo, C=Bgt_Mo, D=Var_Mo, E=Pct_Mo, F=Act_YTD, G=Bgt_YTD, H=Var_YTD, I=Pct_YTD
-
-col_headers(8, ["Description",
-                "Actual (Mo)","Budget (Mo)","Var (Mo)","% Bgt (Mo)",
-                "Actual YTD", "Budget YTD", "Var YTD",  "% Bgt YTD"], start_col=1)
-
-ws.row_dimensions[9].height  = 6
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# REVENUE BY BU  — rows 15–20 (etl starts scanning at row 15)
-# ═══════════════════════════════════════════════════════════════════════════════
-# Rows 10-13: section title
-section_header(10, "SECTION 1 — REVENUE BY BUSINESS UNIT  (USD Millions)")
-ws.cell(row=11, column=1, value="Update yellow cells: Actual (Mo) in col B and Actual YTD in col F for each BU")
-ws.cell(row=11, column=1).font = Font(size=9, italic=True)
-
-col_headers(13, ["Business Unit",
-                 "Actual (Mo)","Budget (Mo)","Var (Mo)","% Bgt (Mo)",
-                 "Actual YTD", "Budget YTD", "Var YTD",  "% Bgt YTD"], start_col=1)
-ws.row_dimensions[14].height = 4
-
-REV_BUS = [
-    # name,         act_mo, bgt_mo, act_ytd, bgt_ytd
-    ("Tracks",              0.99, 1.07,  5.65,  6.17),
-    ("B2B",                 0.63, 0.63,  3.64,  3.72),
-    ("Govt Schools — Legacy",0.52, 0.56,  2.97,  3.20),
-    ("Govt Schools — New",  0.26, 0.29,  1.41,  1.56),
-    ("Out of School",       0.10, 0.10,  0.68,  0.60),
+steps = [
+    ("1.  Update the data",
+     "Work through the tabs left to right. Every cell shaded YELLOW is an input — type over it. "
+     "Grey cells are derived and white cells are labels; leave both alone."),
+    ("2.  Keep the shape",
+     "Add or remove rows inside a table freely (e.g. a new business unit, another vendor). "
+     "Do NOT delete a table's header row — the script finds each table by its header text, not by row number."),
+    ("3.  Regenerate",
+     "Save and close the file, then run:      python etl_pl.py --file noon_dashboard_input.xlsx"),
+    ("4.  Open the dashboard",
+     "The script rewrites index.html. Open it in any browser — no server, no Python needed to view it."),
 ]
-for i, (name, am, bm, ay, by) in enumerate(REV_BUS):
-    r = 15 + i
-    var_m = round(am-bm, 4); pct_m = round(am/bm, 4) if bm else None
-    var_y = round(ay-by, 4); pct_y = round(ay/by, 4) if by else None
-    data_row(r, [name, am, bm, var_m, pct_m, ay, by, var_y, pct_y], input_=True)
-    # formula cells for Var and % (cols D,E,H,I)
-    ws.cell(row=r, column=4).value  = f"=B{r}-C{r}"
-    ws.cell(row=r, column=5).value  = f"=IF(C{r},B{r}/C{r},\"\")"
-    ws.cell(row=r, column=5).number_format = FMT_PCT
-    ws.cell(row=r, column=9).value  = f"=F{r}-G{r}"
-    ws.cell(row=r, column=10).value = f"=IF(G{r},F{r}/G{r},\"\")"
-    ws.cell(row=r, column=10).number_format = FMT_PCT
+for title, body in steps:
+    ws.cell(row=r, column=2, value=title).font = F(bold=True, size=11)
+    c = ws.cell(row=r, column=3, value=body); c.font = F(size=10); c.alignment = A(wrap=True, v="top")
+    ws.row_dimensions[r].height = 32
+    r += 1
 
-# Total Revenue — row 20
-r = 20
-data_row(r, ["Total Revenue",
-             f"=SUM(B15:B19)", f"=SUM(C15:C19)",
-             f"=B{r}-C{r}",   f"=IF(C{r},B{r}/C{r},\"\")",
-             f"=SUM(F15:F19)", f"=SUM(G15:G19)",
-             f"=F{r}-G{r}",   f"=IF(G{r},F{r}/G{r},\"\")"], total=True)
-for col in [5, 10]: ws.cell(row=r, column=col).number_format = FMT_PCT
+r += 1
+section_bar(ws, r, "  WHAT EACH TAB FEEDS", width=4); r += 1
+headers(ws, r, ["", "Tab", "What it contains", "Dashboard element it drives"]); r += 1
 
-ws.row_dimensions[21].height = 8
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# COSTS — rows 24–29
-# ═══════════════════════════════════════════════════════════════════════════════
-section_header(22, "SECTION 2 — COSTS BY CATEGORY  (USD Millions)")
-col_headers(23, ["Cost Category",
-                 "Actual (Mo)","Budget (Mo)","Var (Mo)","% Bgt (Mo)",
-                 "Actual YTD", "Budget YTD", "Var YTD",  "% Bgt YTD"], start_col=1)
-
-COSTS_DATA = [
-    ("Direct costs",              0.89, 0.92,  5.06,  5.28),
-    ("Marketing",                 0.10, 0.13,  0.67,  0.82),
-    ("BU salaries",               0.68, 0.70,  3.87,  3.94),
-    ("Noon HQ",                   0.21, 0.20,  1.18,  1.20),
-    ("Other operating expenses",  0.26, 0.24,  1.41,  1.41),
+tabs = [
+    ("Setup",           "Period labels, reporting year, list of actual months.",
+                        "Every header, the period selector"),
+    ("P&L",             "Revenue by BU, costs by category, P&L summary — month and YTD, actual vs budget.",
+                        "Revenue & cost bullet charts, all three P&L tables"),
+    ("P&L Monthly",     "Month-by-month actual and budget for every revenue, cost and P&L line.",
+                        "Period-range selector (quarters, custom ranges)"),
+    ("Working Capital", "Monthly WC position and the YTD movement bridge.",
+                        "Working capital table"),
+    ("AR",              "Monthly AR flow, aging buckets, balance by contract.",
+                        "AR column chart, AR aging bars, AR by contract bars"),
+    ("AP",              "Monthly AP flow, aging buckets, balance by vendor.",
+                        "AP column chart, AP aging bars, AP by vendor bars"),
+    ("Cash",            "KPI tiles, cash bridges (month & YTD), monthly closing cash, runway metrics.",
+                        "Cash tiles, both waterfalls, cash balance line chart"),
+    ("Key Updates",     "The narrative commentary paragraphs.",
+                        "Key updates section at the bottom"),
 ]
-for i, (name, am, bm, ay, by) in enumerate(COSTS_DATA):
-    r = 24 + i
-    data_row(r, [name, am, bm, round(am-bm,4), None, ay, by, round(ay-by,4), None], input_=True)
-    ws.cell(row=r, column=4).value  = f"=B{r}-C{r}"
-    ws.cell(row=r, column=5).value  = f"=IF(C{r},B{r}/C{r},\"\")"
-    ws.cell(row=r, column=5).number_format = FMT_PCT
-    ws.cell(row=r, column=9).value  = f"=F{r}-G{r}"
-    ws.cell(row=r, column=10).value = f"=IF(G{r},F{r}/G{r},\"\")"
-    ws.cell(row=r, column=10).number_format = FMT_PCT
+for name, contains, drives in tabs:
+    put(ws, r, 2, name, kind="plain", bold=True)
+    put(ws, r, 3, contains, kind="plain", wrap=True)
+    put(ws, r, 4, drives,   kind="plain", wrap=True)
+    ws.row_dimensions[r].height = 30
+    r += 1
 
-r = 29
-data_row(r, ["Total costs",
-             "=SUM(B24:B28)", "=SUM(C24:C28)",
-             f"=B{r}-C{r}", f"=IF(C{r},B{r}/C{r},\"\")",
-             "=SUM(F24:F28)", "=SUM(G24:G28)",
-             f"=F{r}-G{r}", f"=IF(G{r},F{r}/G{r},\"\")"], total=True)
-for col in [5, 10]: ws.cell(row=r, column=col).number_format = FMT_PCT
-
-ws.row_dimensions[30].height = 8
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# P&L SUMMARY — rows 34–41
-# etl reads: row 34+ with parse_avb, then margin % from rows 40-41
-# ═══════════════════════════════════════════════════════════════════════════════
-section_header(31, "SECTION 3 — P&L SUMMARY  (USD Millions)")
-col_headers(32, ["P&L Line",
-                 "Actual (Mo)","Budget (Mo)","Var (Mo)","% Bgt (Mo)",
-                 "Actual YTD", "Budget YTD", "Var YTD",  "% Bgt YTD"], start_col=1)
-ws.row_dimensions[33].height = 4
-
-PL_ROWS = [
-    # name, act_mo, bgt_mo, act_ytd, bgt_ytd, is_total
-    ("Revenue",                    2.50, 2.65, 14.35, 15.25, True),
-    ("Direct / operator costs",    0.89, 0.92,  5.06,  5.28, False),
-    ("Gross profit / contribution", 1.61, 1.73,  9.29,  9.97, True),
-    ("Operating expenses (staff, facilities, mktg, central)", 0.89, 0.93, 5.06, 5.37, False),
-    ("EBITDA",                     0.36, 0.46,  2.16,  2.60, True),
+r += 1
+section_bar(ws, r, "  CELL COLOUR LEGEND", width=4); r += 1
+headers(ws, r, ["", "Colour", "Meaning", ""]); r += 1
+legend = [
+    (C_INPUT, "Yellow", "An input. Type your number or text here."),
+    (C_CALC,  "Grey",   "Derived from your inputs, or a reference value. Do not edit."),
+    (C_TOTAL, "Blue",   "A total. Recalculated by the script from the rows above."),
+    (C_WHITE, "White",  "A label or heading."),
 ]
-for i, (name, am, bm, ay, by, tot) in enumerate(PL_ROWS):
-    r = 34 + i
-    data_row(r, [name, am, bm, round(am-bm,4), None, ay, by, round(ay-by,4), None],
-             total=tot, input_=(not tot))
-    ws.cell(row=r, column=4).value  = f"=B{r}-C{r}"
-    ws.cell(row=r, column=5).value  = f"=IF(C{r},B{r}/C{r},\"\")"
-    ws.cell(row=r, column=5).number_format = FMT_PCT
-    ws.cell(row=r, column=9).value  = f"=F{r}-G{r}"
-    ws.cell(row=r, column=10).value = f"=IF(G{r},F{r}/G{r},\"\")"
-    ws.cell(row=r, column=10).number_format = FMT_PCT
+for hexc, name, mean in legend:
+    ws.cell(row=r, column=2, value=name).fill = fill(hexc)
+    ws.cell(row=r, column=2).font = F(bold=True)
+    ws.cell(row=r, column=2).border = BOX
+    put(ws, r, 3, mean, kind="plain", wrap=True)
+    r += 1
 
-ws.row_dimensions[39].height = 4
-
-# Row 40: Gross margin %  (etl reads col 1 and col 5)
-ws.cell(row=40, column=1, value="Gross profit margin %").fill = fill(C_LIGHT)
-ws.cell(row=40, column=1).font = font(size=9)
-ws.cell(row=40, column=2, value="=B36/B34").number_format = FMT_PCT; ws.cell(row=40,column=2).fill=fill(C_LIGHT)
-ws.cell(row=40, column=6, value="=F36/F34").number_format = FMT_PCT; ws.cell(row=40,column=6).fill=fill(C_LIGHT)
-
-# Row 41: EBITDA margin %
-ws.cell(row=41, column=1, value="EBITDA margin %").fill = fill(C_LIGHT)
-ws.cell(row=41, column=1).font = font(size=9)
-ws.cell(row=41, column=2, value="=B38/B34").number_format = FMT_PCT; ws.cell(row=41,column=2).fill=fill(C_LIGHT)
-ws.cell(row=41, column=6, value="=F38/F34").number_format = FMT_PCT; ws.cell(row=41,column=6).fill=fill(C_LIGHT)
-
-ws.row_dimensions[42].height = 8
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# WORKING CAPITAL MONTHLY — rows 62–73
-# etl reads starting at row 62, cols 0-6
-# ═══════════════════════════════════════════════════════════════════════════════
-section_header(58, "SECTION 4 — WORKING CAPITAL MONTHLY  (USD Millions)")
-ws.cell(row=59, column=1, value="Months after the current period are treated as forecast (greyed in dashboard)")
-ws.cell(row=59, column=1).font = Font(size=9, italic=True)
-col_headers(60, ["Month","AR","AP","Deferred Rev","Other","Net WC","Movement"], start_col=1)
-ws.row_dimensions[61].height = 4
-
-WC_MO = [
-    ("Jan-26", 5.9,-2.9,-2.4, 0.5, 1.1, 0.0),
-    ("Feb-26", 6.1,-2.8,-2.3, 0.5, 1.5, 0.4),
-    ("Mar-26", 6.3,-2.7,-2.2, 0.6, 2.0, 0.5),
-    ("Apr-26", 6.4,-2.9,-2.2, 0.5, 1.8,-0.2),
-    ("May-26", 6.6,-2.8,-2.1, 0.6, 2.3, 0.5),
-    ("Jun-26", 6.7,-2.7,-2.1, 0.6, 2.5, 0.2),
-    ("Jul-26", 6.8,-2.6,-2.0, 0.6, 2.8, 0.3),
-    ("Aug-26", 7.1,-2.4,-1.8, 0.3, 3.2, 0.4),
+r += 1
+section_bar(ws, r, "  CONVENTIONS", width=4); r += 1
+convs = [
+    ("Units",        "All monetary figures are USD millions. Enter 2.5 for $2.5M — not 2500000."),
+    ("Percentages",  "Enter as a percentage-formatted number (96.0%), not 0.96 or 96."),
+    ("Costs",        "Enter costs as POSITIVE numbers. The dashboard applies the sign."),
+    ("Working capital", "AP and deferred revenue are entered NEGATIVE (they are liabilities)."),
+    ("Months",       "Use the 'Mmm-YY' format exactly: Jan-26, Feb-26. The script matches on this."),
+    ("Forecast",     "In monthly tables, mark a row Y under 'Forecast?' to grey it in the dashboard."),
+    ("Blank rows",   "A blank row ends a table. Don't leave gaps in the middle of one."),
 ]
-for i, row_data in enumerate(WC_MO):
-    data_row(62+i, list(row_data), input_=True)
+for k, vtext in convs:
+    put(ws, r, 2, k, kind="plain", bold=True)
+    put(ws, r, 3, vtext, kind="plain", wrap=True)
+    ws.row_dimensions[r].height = 26
+    r += 1
 
-ws.row_dimensions[70].height = 8
+ws.sheet_view.showGridLines = False
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# WORKING CAPITAL YTD — rows 74–78
-# etl reads starting at row 74, cols 0-4
-# ═══════════════════════════════════════════════════════════════════════════════
-section_header(71, "SECTION 5 — WORKING CAPITAL YTD MOVEMENT  (USD Millions)")
-col_headers(72, ["WC Item","At 1 Jan","At Period End","Movement","Cash Impact"], start_col=1)
-ws.row_dimensions[73].height = 4
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 2 — SETUP
+# ══════════════════════════════════════════════════════════════════════════════
+ws = wb.create_sheet("Setup")
+widths(ws, {"A": 34, "B": 40, "C": 60})
+
+section_bar(ws, 1, "  REPORTING PERIOD", width=3)
+note(ws, 2, "These labels appear in every dashboard header. Update them first each month.")
+headers(ws, 4, ["Setting", "Value", "Notes"])
+
+setup_rows = [
+    ("Period label (month)", "June 2026",      "The latest closed month, e.g. 'July 2026'"),
+    ("YTD label",            "Jan–Jun 2026",   "Range covered year-to-date"),
+    ("Reporting year",       "2026",           "Calendar year of the current period"),
+    ("Fiscal year label",    "FY2025/26",      "Shown next to quarter labels"),
+    ("Fiscal year start month", 7,             "1 = January … 7 = July"),
+    ("Currency label",       "USD M",          "Displayed under chart titles"),
+]
+r = 5
+for k, val, nt in setup_rows:
+    put(ws, r, 1, k, kind="plain", bold=True)
+    put(ws, r, 2, val, kind="input")
+    put(ws, r, 3, nt, kind="plain")
+    r += 1
+
+r += 1
+section_bar(ws, r, "  ACTUAL MONTHS", width=3); r += 1
+note(ws, r, "One row per closed month, oldest first. This defines the period selector and the order of every monthly chart."); r += 1
+headers(ws, r, ["Month", "Short label", "Notes"]); r += 1
+
+months_2026 = [("Jan-26","Jan"),("Feb-26","Feb"),("Mar-26","Mar"),
+               ("Apr-26","Apr"),("May-26","May"),("Jun-26","Jun")]
+for full, short in months_2026:
+    put(ws, r, 1, full,  kind="input")
+    put(ws, r, 2, short, kind="input")
+    put(ws, r, 3, "", kind="plain")
+    r += 1
+
+ws.sheet_view.showGridLines = False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 3 — P&L  (month + YTD, actual vs budget)
+# ══════════════════════════════════════════════════════════════════════════════
+ws = wb.create_sheet("P&L")
+widths(ws, {"A": 46, "B": 13, "C": 13, "D": 13, "E": 13, "F": 13, "G": 13})
+
+AVB_HDR = ["", "Actual (Month)", "Budget (Month)", "Actual YTD", "Budget YTD"]
+
+def avb_block(ws, start_row, bar, hdr0, rows_data, note_text=None, total_label=None):
+    """Returns (next_free_row, first_data_row, total_row). Callers use the returned
+    row numbers directly — never recompute them, or references drift silently."""
+    r = start_row
+    section_bar(ws, r, bar, width=5); r += 1
+    if note_text:
+        note(ws, r, note_text); r += 1
+    headers(ws, r, [hdr0] + AVB_HDR[1:]); r += 1
+    first = r
+    for name, am, bm, ay, by in rows_data:
+        put(ws, r, 1, name, kind="plain")
+        put(ws, r, 2, am, kind="input", fmt=FMT_M)
+        put(ws, r, 3, bm, kind="input", fmt=FMT_M)
+        put(ws, r, 4, ay, kind="input", fmt=FMT_M)
+        put(ws, r, 5, by, kind="input", fmt=FMT_M)
+        r += 1
+    last = r - 1
+    total_row = None
+    if total_label:
+        total_row = r
+        put(ws, r, 1, total_label, kind="total", bold=True)
+        for col in range(2, 6):
+            L = get_column_letter(col)
+            put(ws, r, col, f"=SUM({L}{first}:{L}{last})", kind="total", fmt=FMT_M)
+        r += 1
+    return r + 1, first, total_row
+
+REVENUE = [
+    ("Tracks",                0.99, 1.07,  5.65,  6.17),
+    ("B2B",                   0.63, 0.63,  3.64,  3.72),
+    ("Govt Schools — Legacy",  0.52, 0.56,  2.97,  3.20),
+    ("Govt Schools — New",     0.26, 0.29,  1.41,  1.56),
+    ("Out of School",         0.10, 0.10,  0.68,  0.60),
+]
+COSTS = [
+    ("Direct costs",             0.89, 0.92, 5.06, 5.28),
+    ("Marketing",                0.10, 0.13, 0.67, 0.82),
+    ("BU salaries",              0.68, 0.70, 3.87, 3.94),
+    ("Noon HQ",                  0.21, 0.20, 1.18, 1.20),
+    ("Other operating expenses", 0.26, 0.24, 1.41, 1.41),
+]
+r, rev_first, rev_tot_row = avb_block(
+    ws, 1, "  REVENUE BY BUSINESS UNIT  (USD M)", "Business Unit", REVENUE,
+    "One row per business unit. Add rows as new units launch — the total recalculates.",
+    "Total Revenue")
+r, cost_first, cost_tot_row = avb_block(
+    ws, r, "  COSTS BY CATEGORY  (USD M)", "Cost Category", COSTS,
+    "Enter all costs as POSITIVE numbers.", "Total costs")
+
+# Named row numbers for each cost line, so P&L references cannot drift
+COST_ROW = {name: cost_first + i for i, (name, *_) in enumerate(COSTS)}
+
+# P&L summary — derived, but left editable so it can be overridden
+section_bar(ws, r, "  P&L SUMMARY  (USD M)", width=7); r += 1
+note(ws, r, "Grey cells pull from the blocks above. Override only if your P&L differs from Revenue − Costs."); r += 1
+headers(ws, r, ["P&L Line", "Actual (Month)", "Budget (Month)", "Actual YTD", "Budget YTD",
+                "Type", "Is a cost?"]); r += 1
+
+def src(row_num):
+    """Column formulas pulling one source row across all four value columns."""
+    return tuple(f"={get_column_letter(c)}{row_num}" for c in range(2, 6))
+
+PL_LINES = [
+    ("Revenue",                  *src(rev_tot_row),                         "value", "No"),
+    ("Direct costs",             *src(COST_ROW["Direct costs"]),            "value", "Yes"),
+    ("Gross profit",             None, None, None, None,                    "value", "No"),
+    ("Marketing expense",        *src(COST_ROW["Marketing"]),               "value", "Yes"),
+    ("Contribution profit",      None, None, None, None,                    "value", "No"),
+    ("BU salaries",              *src(COST_ROW["BU salaries"]),             "value", "Yes"),
+    ("Noon HQ",                  *src(COST_ROW["Noon HQ"]),                 "value", "Yes"),
+    ("Other operating expenses", *src(COST_ROW["Other operating expenses"]),"value", "Yes"),
+    ("EBITDA",                   None, None, None, None,                    "value", "No"),
+]
+pl_first = r
+pl_rownum = {}
+for i, (name, am, bm, ay, by, kind, is_cost) in enumerate(PL_LINES):
+    pl_rownum[name] = r
+    put(ws, r, 1, name, kind="plain", bold=name in ("Gross profit","Contribution profit","EBITDA"))
+    if am is None:   # computed below
+        pass
+    else:
+        for col, formula in zip(range(2, 6), (am, bm, ay, by)):
+            put(ws, r, col, formula, kind="calc", fmt=FMT_M)
+    put(ws, r, 6, kind, kind="plain")
+    put(ws, r, 7, is_cost, kind="plain")
+    r += 1
+
+# Fill the three computed subtotal lines
+gp, cp, eb = pl_rownum["Gross profit"], pl_rownum["Contribution profit"], pl_rownum["EBITDA"]
+rv, dc, mk = pl_rownum["Revenue"], pl_rownum["Direct costs"], pl_rownum["Marketing expense"]
+sal, hq, oth = pl_rownum["BU salaries"], pl_rownum["Noon HQ"], pl_rownum["Other operating expenses"]
+for col in range(2, 6):
+    L = get_column_letter(col)
+    put(ws, gp, col, f"={L}{rv}-{L}{dc}",                          kind="total", fmt=FMT_M)
+    put(ws, cp, col, f"={L}{gp}-{L}{mk}",                          kind="total", fmt=FMT_M)
+    put(ws, eb, col, f"={L}{cp}-{L}{sal}-{L}{hq}-{L}{oth}",        kind="total", fmt=FMT_M)
+
+r += 1
+section_bar(ws, r, "  MARGINS  (calculated)", width=5); r += 1
+headers(ws, r, ["Margin", "Actual (Month)", "Budget (Month)", "Actual YTD", "Budget YTD"]); r += 1
+for label, num in (("Gross profit margin", gp), ("Contribution margin", cp), ("EBITDA margin", eb)):
+    put(ws, r, 1, label, kind="plain")
+    for col in range(2, 6):
+        L = get_column_letter(col)
+        put(ws, r, col, f"=IF({L}{rv}=0,\"\",{L}{num}/{L}{rv})", kind="calc", fmt=FMT_PCT)
+    r += 1
+
+ws.sheet_view.showGridLines = False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 4 — P&L MONTHLY  (drives the period-range selector)
+# ══════════════════════════════════════════════════════════════════════════════
+ws = wb.create_sheet("P&L Monthly")
+widths(ws, {"A": 46})
+for i in range(2, 9):
+    ws.column_dimensions[get_column_letter(i)].width = 12
+
+MONTH_COLS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+
+# Realistic monthly series that sum to the YTD figures on the P&L tab
+MONTHLY = {
+    "Revenue — Actual": [
+        ("Tracks",                [0.876, 0.904, 0.960, 0.932, 0.988, 0.990]),
+        ("B2B",                   [0.566, 0.584, 0.620, 0.602, 0.638, 0.630]),
+        ("Govt Schools — Legacy",  [0.461, 0.475, 0.505, 0.490, 0.519, 0.520]),
+        ("Govt Schools — New",     [0.216, 0.223, 0.237, 0.230, 0.244, 0.260]),
+        ("Out of School",         [0.109, 0.113, 0.120, 0.116, 0.123, 0.100]),
+    ],
+    "Revenue — Budget": [
+        ("Tracks",                [0.959, 0.989, 1.051, 1.020, 1.081, 1.070]),
+        ("B2B",                   [0.581, 0.600, 0.637, 0.618, 0.655, 0.630]),
+        ("Govt Schools — Legacy",  [0.496, 0.512, 0.544, 0.528, 0.560, 0.560]),
+        ("Govt Schools — New",     [0.239, 0.246, 0.262, 0.254, 0.269, 0.290]),
+        ("Out of School",         [0.094, 0.097, 0.103, 0.100, 0.106, 0.100]),
+    ],
+    "Costs — Actual": [
+        ("Direct costs",             [0.784, 0.809, 0.859, 0.834, 0.884, 0.890]),
+        ("Marketing",                [0.107, 0.111, 0.117, 0.114, 0.121, 0.100]),
+        ("BU salaries",              [0.600, 0.619, 0.657, 0.638, 0.676, 0.680]),
+        ("Noon HQ",                  [0.182, 0.188, 0.200, 0.194, 0.206, 0.210]),
+        ("Other operating expenses", [0.216, 0.223, 0.237, 0.230, 0.244, 0.260]),
+    ],
+    "Costs — Budget": [
+        ("Direct costs",             [0.820, 0.846, 0.898, 0.872, 0.924, 0.920]),
+        ("Marketing",                [0.130, 0.134, 0.142, 0.138, 0.146, 0.130]),
+        ("BU salaries",              [0.609, 0.629, 0.667, 0.648, 0.687, 0.700]),
+        ("Noon HQ",                  [0.188, 0.194, 0.206, 0.200, 0.212, 0.200]),
+        ("Other operating expenses", [0.220, 0.227, 0.241, 0.234, 0.248, 0.240]),
+    ],
+}
+
+r = 1
+section_bar(ws, r, "  MONTHLY ACTUAL & BUDGET SERIES  (USD M)", width=7); r += 1
+note(ws, r, "Drives the period-range selector. Each row must sum across the months to its YTD figure on the P&L tab."); r += 1
+note(ws, r, "Month columns must match the short labels on the Setup tab, in the same order."); r += 2
+
+for block_name, block_rows in MONTHLY.items():
+    section_bar(ws, r, f"  {block_name.upper()}", width=7); r += 1
+    headers(ws, r, [block_name] + MONTH_COLS); r += 1
+    first = r
+    for name, vals in block_rows:
+        put(ws, r, 1, name, kind="plain")
+        for i, val in enumerate(vals):
+            put(ws, r, 2 + i, val, kind="input", fmt=FMT_M)
+        r += 1
+    last = r - 1
+    put(ws, r, 1, "Total", kind="total", bold=True)
+    for i in range(len(MONTH_COLS)):
+        L = get_column_letter(2 + i)
+        put(ws, r, 2 + i, f"=SUM({L}{first}:{L}{last})", kind="total", fmt=FMT_M)
+    r += 3
+
+ws.sheet_view.showGridLines = False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 5 — WORKING CAPITAL
+# ══════════════════════════════════════════════════════════════════════════════
+ws = wb.create_sheet("Working Capital")
+widths(ws, {"A": 30, "B": 14, "C": 14, "D": 15, "E": 14, "F": 14, "G": 14, "H": 12})
+
+r = 1
+section_bar(ws, r, "  WORKING CAPITAL — MONTHLY POSITION  (USD M)", width=8); r += 1
+note(ws, r, "Closing balances. Enter AP and deferred revenue as NEGATIVE numbers."); r += 1
+headers(ws, r, ["Month", "Receivables", "Payables", "Deferred revenue",
+                "Other WC", "Net WC", "Movement", "Forecast?"]); r += 1
+
+WC_MONTHLY = [
+    ("Jan-26", 5.9, -2.9, -2.4, 0.5, "No"),
+    ("Feb-26", 6.1, -2.8, -2.3, 0.5, "No"),
+    ("Mar-26", 6.3, -2.7, -2.2, 0.6, "No"),
+    ("Apr-26", 6.4, -2.9, -2.2, 0.5, "No"),
+    ("May-26", 6.6, -2.8, -2.1, 0.6, "No"),
+    ("Jun-26", 6.7, -2.7, -2.1, 0.6, "No"),
+    ("Jul-26", 6.8, -2.6, -2.0, 0.6, "Yes"),
+    ("Aug-26", 7.1, -2.4, -1.8, 0.3, "Yes"),
+]
+wc_first = r
+for mo, ar, apv, dfr, oth_, fc in WC_MONTHLY:
+    put(ws, r, 1, mo,  kind="input")
+    put(ws, r, 2, ar,  kind="input", fmt=FMT_M)
+    put(ws, r, 3, apv, kind="input", fmt=FMT_M)
+    put(ws, r, 4, dfr, kind="input", fmt=FMT_M)
+    put(ws, r, 5, oth_,kind="input", fmt=FMT_M)
+    put(ws, r, 6, f"=SUM(B{r}:E{r})", kind="calc", fmt=FMT_M)
+    put(ws, r, 7, f"=F{r}-F{r-1}" if r > wc_first else 0, kind="calc", fmt=FMT_MS)
+    put(ws, r, 8, fc, kind="input", halign="center")
+    r += 1
+
+r += 1
+section_bar(ws, r, "  WORKING CAPITAL — YTD MOVEMENT  (USD M)", width=5); r += 1
+note(ws, r, "Opening vs closing balance for the year to date. Cash impact is the mirror of the movement."); r += 1
+headers(ws, r, ["WC Item", "At 1 Jan", "At period end", "Movement", "Cash impact"]); r += 1
 
 WC_YTD = [
-    ("Accounts receivable",       5.9, 6.7, 0.8,-0.8),
-    ("Accounts payable",         -2.9,-2.7, 0.2,-0.2),
-    ("Deferred revenue",         -2.4,-2.1, 0.3,-0.3),
-    ("Other working capital items", 0.5, 0.6, 0.1,-0.1),
-    ("Net working capital",       1.1, 2.5, 1.4,-1.4),
+    ("Accounts receivable",          5.9,  6.7),
+    ("Accounts payable",            -2.9, -2.7),
+    ("Deferred revenue",            -2.4, -2.1),
+    ("Other working capital items",  0.5,  0.6),
 ]
-for i, row_data in enumerate(WC_YTD):
-    tot = "Net working capital" in row_data[0]
-    data_row(74+i, list(row_data), total=tot, input_=(not tot))
+wy_first = r
+for item, op, cl in WC_YTD:
+    put(ws, r, 1, item, kind="plain")
+    put(ws, r, 2, op,   kind="input", fmt=FMT_M)
+    put(ws, r, 3, cl,   kind="input", fmt=FMT_M)
+    put(ws, r, 4, f"=C{r}-B{r}",  kind="calc", fmt=FMT_MS)
+    put(ws, r, 5, f"=-(C{r}-B{r})", kind="calc", fmt=FMT_MS)
+    r += 1
+wy_last = r - 1
+put(ws, r, 1, "Net working capital", kind="total", bold=True)
+for col, L in ((2,"B"),(3,"C"),(4,"D"),(5,"E")):
+    put(ws, r, col, f"=SUM({L}{wy_first}:{L}{wy_last})", kind="total",
+        fmt=FMT_M if col in (2,3) else FMT_MS)
 
-ws.row_dimensions[79].height = 8
+ws.sheet_view.showGridLines = False
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# AR MONTHLY — rows 84–91, YTD row 92
-# etl reads starting at row 84, cols 0-5
-# ═══════════════════════════════════════════════════════════════════════════════
-section_header(80, "SECTION 6 — ACCOUNTS RECEIVABLE MONTHLY  (USD Millions)")
-col_headers(82, ["Month","Opening AR","Invoiced","Collected","Closing AR","Collection Rate"], start_col=1)
-ws.row_dimensions[83].height = 4
 
-AR_MO = [
-    ("Jan-26", 5.70, 2.30, 2.10, 5.90, 0.913),
-    ("Feb-26", 5.90, 2.25, 2.05, 6.10, 0.911),
-    ("Mar-26", 6.10, 2.55, 2.35, 6.30, 0.922),
-    ("Apr-26", 6.30, 2.40, 2.30, 6.40, 0.958),
-    ("May-26", 6.40, 2.35, 2.15, 6.60, 0.915),
-    ("Jun-26", 6.60, 2.50, 2.40, 6.70, 0.960),
-    ("Jul-26", 6.70, 2.55, 2.45, 6.80, 0.961),
-    ("Aug-26", 6.80, 2.60, 2.30, 7.10, 0.885),
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 6 — AR
+# ══════════════════════════════════════════════════════════════════════════════
+ws = wb.create_sheet("AR")
+widths(ws, {"A": 32, "B": 14, "C": 14, "D": 14, "E": 14, "F": 16})
+
+r = 1
+section_bar(ws, r, "  ACCOUNTS RECEIVABLE — MONTHLY FLOW  (USD M)", width=6); r += 1
+note(ws, r, "Drives the AR column chart. Closing and the collection rate are calculated."); r += 1
+headers(ws, r, ["Month", "Opening AR", "Invoiced", "Collected", "Closing AR", "Collection rate"]); r += 1
+
+AR_MONTHLY = [
+    ("Jan-26", 5.70, 2.30, 2.10),
+    ("Feb-26", 5.90, 2.25, 2.05),
+    ("Mar-26", 6.10, 2.55, 2.35),
+    ("Apr-26", 6.30, 2.40, 2.30),
+    ("May-26", 6.40, 2.35, 2.15),
+    ("Jun-26", 6.60, 2.50, 2.40),
+    ("Jul-26", 6.70, 2.55, 2.45),
+    ("Aug-26", 6.80, 2.60, 2.30),
 ]
-for i, (mo, op, inv, col_, cl, rate) in enumerate(AR_MO):
-    r = 84+i
-    data_row(r, [mo, op, inv, col_, cl, rate], input_=True)
-    ws.cell(row=r, column=6).number_format = FMT_PCT
-    ws.cell(row=r, column=5).value = f"=B{r}+C{r}-D{r}"
+ar_first = r
+for mo, op, inv, coll in AR_MONTHLY:
+    put(ws, r, 1, mo,   kind="input")
+    put(ws, r, 2, op,   kind="input", fmt=FMT_M)
+    put(ws, r, 3, inv,  kind="input", fmt=FMT_M)
+    put(ws, r, 4, coll, kind="input", fmt=FMT_M)
+    put(ws, r, 5, f"=B{r}+C{r}-D{r}", kind="calc", fmt=FMT_M)
+    put(ws, r, 6, f"=IF(C{r}=0,\"\",D{r}/C{r})", kind="calc", fmt=FMT_PCT)
+    r += 1
+ar_last = r - 1
+put(ws, r, 1, "YTD total", kind="total", bold=True)
+put(ws, r, 2, "", kind="total")
+put(ws, r, 3, f"=SUM(C{ar_first}:C{ar_first+5})", kind="total", fmt=FMT_M)
+put(ws, r, 4, f"=SUM(D{ar_first}:D{ar_first+5})", kind="total", fmt=FMT_M)
+put(ws, r, 5, f"=E{ar_first+5}", kind="total", fmt=FMT_M)
+put(ws, r, 6, f"=IF(C{r}=0,\"\",D{r}/C{r})", kind="total", fmt=FMT_PCT)
+r += 2
 
-# AR YTD row 92  (etl scans r_n to r_n+3 for "ytd" label)
-data_row(92, ["YTD Total", None, "=SUM(C84:C89)", "=SUM(D84:D89)", None,
-              "=IF(C92,D92/C92,\"\")"], total=True)
-ws.cell(row=92, column=6).number_format = FMT_PCT
+section_bar(ws, r, "  AR AGING  (USD M)", width=3); r += 1
+note(ws, r, "Balance at the period end, split by age. Share is calculated."); r += 1
+headers(ws, r, ["AR Aging Bucket", "Amount", "Share"]); r += 1
+AR_AGING = [("Current — due next 30 days", 2.8), ("31–60 days", 2.0), ("60+ days / overdue", 1.9)]
+ag_first = r
+for bucket, amt in AR_AGING:
+    put(ws, r, 1, bucket, kind="plain")
+    put(ws, r, 2, amt,    kind="input", fmt=FMT_M)
+    r += 1
+ag_last = r - 1
+for rr in range(ag_first, ag_last + 1):
+    put(ws, rr, 3, f"=IF($B${r}=0,\"\",B{rr}/$B${r})", kind="calc", fmt=FMT_PCT)
+put(ws, r, 1, "Total AR", kind="total", bold=True)
+put(ws, r, 2, f"=SUM(B{ag_first}:B{ag_last})", kind="total", fmt=FMT_M)
+put(ws, r, 3, 1.0, kind="total", fmt=FMT_PCT)
+r += 2
 
-ws.row_dimensions[93].height = 8
+section_bar(ws, r, "  AR BY CONTRACT  (USD M)", width=3); r += 1
+note(ws, r, "Largest receivable balances by contract or customer. Add rows as needed."); r += 1
+headers(ws, r, ["Contract", "Amount", "Share"]); r += 1
+AR_CONTRACT = [("Ministry of Education — Framework", 2.10), ("Riyadh Schools Group", 1.50),
+               ("Jeddah Private Academies", 1.20), ("Eastern Province Consortium", 0.80),
+               ("Tracks — corporate accounts", 0.60), ("Other contracts", 0.50)]
+ct_first = r
+for contract, amt in AR_CONTRACT:
+    put(ws, r, 1, contract, kind="input")
+    put(ws, r, 2, amt,      kind="input", fmt=FMT_M)
+    r += 1
+ct_last = r - 1
+for rr in range(ct_first, ct_last + 1):
+    put(ws, rr, 3, f"=IF($B${r}=0,\"\",B{rr}/$B${r})", kind="calc", fmt=FMT_PCT)
+put(ws, r, 1, "Total", kind="total", bold=True)
+put(ws, r, 2, f"=SUM(B{ct_first}:B{ct_last})", kind="total", fmt=FMT_M)
+put(ws, r, 3, 1.0, kind="total", fmt=FMT_PCT)
 
-# AR Aging — rows 96–98, Total row 99
-section_header(94, "SECTION 7 — AR AGING  (USD Millions)")
-col_headers(95, ["Aging Bucket","Amount","Share %"], start_col=1)
+ws.sheet_view.showGridLines = False
 
-AR_AGING = [
-    ("Current — due next 30 days", 2.8, 0.4179),
-    ("31–60 days",                 2.0, 0.2985),
-    ("60+ days / overdue",         1.9, 0.2836),
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 7 — AP
+# ══════════════════════════════════════════════════════════════════════════════
+ws = wb.create_sheet("AP")
+widths(ws, {"A": 32, "B": 14, "C": 14, "D": 14, "E": 14, "F": 16})
+
+r = 1
+section_bar(ws, r, "  ACCOUNTS PAYABLE — MONTHLY FLOW  (USD M)", width=6); r += 1
+note(ws, r, "Drives the AP column chart. Enter DPO in days."); r += 1
+headers(ws, r, ["Month", "Opening AP", "Purchases", "Payments", "Closing AP", "DPO (days)"]); r += 1
+
+AP_MONTHLY = [
+    ("Jan-26", 2.95, 2.00, 2.05, 43.5),
+    ("Feb-26", 2.90, 1.95, 2.05, 43.1),
+    ("Mar-26", 2.80, 2.00, 2.10, 40.5),
+    ("Apr-26", 2.70, 2.10, 1.90, 41.4),
+    ("May-26", 2.90, 1.95, 2.05, 43.1),
+    ("Jun-26", 2.80, 2.05, 2.15, 39.5),
+    ("Jul-26", 2.70, 2.00, 2.10, 39.0),
+    ("Aug-26", 2.60, 1.90, 2.10, 37.9),
 ]
-for i, (bk, amt, sh) in enumerate(AR_AGING):
-    data_row(96+i, [bk, amt, sh], input_=True)
-    ws.cell(row=96+i, column=3).number_format = FMT_PCT
+ap_first = r
+for mo, op, pur, pay, dpo in AP_MONTHLY:
+    put(ws, r, 1, mo,  kind="input")
+    put(ws, r, 2, op,  kind="input", fmt=FMT_M)
+    put(ws, r, 3, pur, kind="input", fmt=FMT_M)
+    put(ws, r, 4, pay, kind="input", fmt=FMT_M)
+    put(ws, r, 5, f"=B{r}+C{r}-D{r}", kind="calc", fmt=FMT_M)
+    put(ws, r, 6, dpo, kind="input", fmt=FMT_NUM)
+    r += 1
+put(ws, r, 1, "YTD total", kind="total", bold=True)
+put(ws, r, 2, "", kind="total")
+put(ws, r, 3, f"=SUM(C{ap_first}:C{ap_first+5})", kind="total", fmt=FMT_M)
+put(ws, r, 4, f"=SUM(D{ap_first}:D{ap_first+5})", kind="total", fmt=FMT_M)
+put(ws, r, 5, f"=E{ap_first+5}", kind="total", fmt=FMT_M)
+put(ws, r, 6, f"=AVERAGE(F{ap_first}:F{ap_first+5})", kind="total", fmt=FMT_NUM)
+r += 2
 
-data_row(99, ["Total AR", "=SUM(B96:B98)", "=B99/B99"], total=True)
-ws.cell(row=99, column=3).number_format = FMT_PCT
-ws.row_dimensions[100].height = 8
+section_bar(ws, r, "  AP AGING  (USD M)", width=3); r += 1
+note(ws, r, "Balance at the period end, split by age."); r += 1
+headers(ws, r, ["AP Aging Bucket", "Amount", "Share"]); r += 1
+AP_AGING = [("Current — due next 30 days", 1.5), ("31–60 days", 0.8), ("60+ days / overdue", 0.4)]
+apg_first = r
+for bucket, amt in AP_AGING:
+    put(ws, r, 1, bucket, kind="plain")
+    put(ws, r, 2, amt,    kind="input", fmt=FMT_M)
+    r += 1
+apg_last = r - 1
+for rr in range(apg_first, apg_last + 1):
+    put(ws, rr, 3, f"=IF($B${r}=0,\"\",B{rr}/$B${r})", kind="calc", fmt=FMT_PCT)
+put(ws, r, 1, "Total AP", kind="total", bold=True)
+put(ws, r, 2, f"=SUM(B{apg_first}:B{apg_last})", kind="total", fmt=FMT_M)
+put(ws, r, 3, 1.0, kind="total", fmt=FMT_PCT)
+r += 2
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# AP MONTHLY — rows 105–112, YTD row 113
-# etl reads starting at row 105, cols 0-5
-# ═══════════════════════════════════════════════════════════════════════════════
-section_header(101, "SECTION 8 — ACCOUNTS PAYABLE MONTHLY  (USD Millions)")
-col_headers(103, ["Month","Opening AP","Purchases","Payments","Closing AP","DPO (days)"], start_col=1)
-ws.row_dimensions[104].height = 4
+section_bar(ws, r, "  AP BY VENDOR  (USD M)", width=3); r += 1
+note(ws, r, "Largest payable balances by vendor. Add rows as needed."); r += 1
+headers(ws, r, ["Vendor", "Amount", "Share"]); r += 1
+AP_VENDOR = [("AWS / cloud infrastructure", 0.62), ("Content production partners", 0.48),
+             ("Facilities & office leases", 0.37), ("Marketing agencies", 0.29),
+             ("Professional services", 0.21), ("Other vendors", 0.18)]
+vn_first = r
+for vendor, amt in AP_VENDOR:
+    put(ws, r, 1, vendor, kind="input")
+    put(ws, r, 2, amt,    kind="input", fmt=FMT_M)
+    r += 1
+vn_last = r - 1
+for rr in range(vn_first, vn_last + 1):
+    put(ws, rr, 3, f"=IF($B${r}=0,\"\",B{rr}/$B${r})", kind="calc", fmt=FMT_PCT)
+put(ws, r, 1, "Total", kind="total", bold=True)
+put(ws, r, 2, f"=SUM(B{vn_first}:B{vn_last})", kind="total", fmt=FMT_M)
+put(ws, r, 3, 1.0, kind="total", fmt=FMT_PCT)
 
-AP_MO = [
-    ("Jan-26", 2.95, 2.00, 2.05, 2.90, 43.5),
-    ("Feb-26", 2.90, 1.95, 2.05, 2.80, 43.1),
-    ("Mar-26", 2.80, 2.00, 2.10, 2.70, 40.5),
-    ("Apr-26", 2.70, 2.10, 1.90, 2.90, 41.4),
-    ("May-26", 2.90, 1.95, 2.05, 2.80, 43.1),
-    ("Jun-26", 2.80, 2.05, 2.15, 2.70, 39.5),
-    ("Jul-26", 2.70, 2.00, 2.10, 2.60, 39.0),
-    ("Aug-26", 2.60, 1.90, 2.10, 2.40, 37.9),
+ws.sheet_view.showGridLines = False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 8 — CASH
+# ══════════════════════════════════════════════════════════════════════════════
+ws = wb.create_sheet("Cash")
+widths(ws, {"A": 34, "B": 15, "C": 34, "D": 15, "E": 34, "F": 14})
+
+r = 1
+section_bar(ws, r, "  CASH KPI TILES", width=5); r += 1
+note(ws, r, "Four tiles, each shown twice — once for the month, once for YTD. The note is the small text under the number."); r += 1
+headers(ws, r, ["Cash Tile", "Month value", "Month note", "YTD value", "YTD note"]); r += 1
+
+TILES = [
+    ("Cash balance",  4.08, "29.1 months runway",       4.08,  "opened the year at $4.80M"),
+    ("Collections",   2.40, "Budget $2.50M invoiced",  13.35,  "on $14.35M invoiced YTD"),
+    ("Net working capital", 3.20, "+$0.40M vs prior month", 1.40, "movement YTD · closing $2.50M"),
+    ("Accounts receivable", 7.10, "88% collection rate",    7.10, "from $5.70M at 1 Jan"),
 ]
-for i, (mo, op, pur, pay, cl, dpo) in enumerate(AP_MO):
-    r = 105+i
-    data_row(r, [mo, op, pur, pay, cl, dpo], input_=True)
-    ws.cell(row=r, column=5).value = f"=B{r}+C{r}-D{r}"
+for name, mv, mn, yv, yn in TILES:
+    put(ws, r, 1, name, kind="plain", bold=True)
+    put(ws, r, 2, mv, kind="input", fmt=FMT_M)
+    put(ws, r, 3, mn, kind="input")
+    put(ws, r, 4, yv, kind="input", fmt=FMT_M)
+    put(ws, r, 5, yn, kind="input")
+    r += 1
+r += 1
 
-data_row(113, ["YTD Total", None, "=SUM(C105:C110)", "=SUM(D105:D110)", None,
-               "=AVERAGE(F105:F110)"], total=True)
-ws.cell(row=113, column=6).number_format = FMT_2D
+def bridge_block(ws, r, title, note_text, header, steps):
+    section_bar(ws, r, title, width=4); r += 1
+    note(ws, r, note_text); r += 1
+    headers(ws, r, [header, "Type", "Amount", "Running balance"]); r += 1
+    first = r
+    for step, kind_, amt in steps:
+        put(ws, r, 1, step, kind="input")
+        put(ws, r, 2, kind_, kind="input", halign="center")
+        put(ws, r, 3, amt,  kind="input", fmt=FMT_M)
+        if r == first:
+            put(ws, r, 4, f"=C{r}", kind="calc", fmt=FMT_M)
+        else:
+            put(ws, r, 4,
+                f'=IF(B{r}="Closing",D{r-1},IF(B{r}="Inflow",D{r-1}+C{r},D{r-1}-C{r}))',
+                kind="calc", fmt=FMT_M)
+        r += 1
+    return r + 1
 
-ws.row_dimensions[114].height = 8
-
-# AP Aging — rows 118–120, Total row 121
-section_header(115, "SECTION 9 — AP AGING  (USD Millions)")
-col_headers(116, ["Aging Bucket","Amount","Share %"], start_col=1)
-ws.row_dimensions[117].height = 4
-
-AP_AGING = [
-    ("Current — due next 30 days", 1.5, 0.5556),
-    ("31–60 days",                 0.8, 0.2963),
-    ("60+ days / overdue",         0.4, 0.1481),
+BRIDGE_M = [
+    ("Opening cash",    "Opening", 4.40),
+    ("Collections",     "Inflow",  2.40),
+    ("Other inflows",   "Inflow",  0.10),
+    ("Operating costs", "Outflow", 2.08),
+    ("Capex",           "Outflow", 0.16),
+    ("Debt service",    "Outflow", 0.16),
+    ("Other outflows",  "Outflow", 0.42),
+    ("Closing cash",    "Closing", 4.08),
 ]
-for i, (bk, amt, sh) in enumerate(AP_AGING):
-    data_row(118+i, [bk, amt, sh], input_=True)
-    ws.cell(row=118+i, column=3).number_format = FMT_PCT
-
-data_row(121, ["Total AP", "=SUM(B118:B120)", "=B121/B121"], total=True)
-ws.cell(row=121, column=3).number_format = FMT_PCT
-ws.row_dimensions[122].height = 8
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# CASH TILES — etl reads specific cell positions
-# R135 col10=cash_val_m, col15=coll_val_m, col20=cash_val_y, col25=coll_val_y
-# R136 col10=cash_note_m, col15=coll_note_m, col20=cash_note_y, col25=coll_note_y
-# R138 col10=nwc_val_m,  col15=ar_val_m,   col20=nwc_val_y,  col25=ar_val_y
-# R139 col10=nwc_note_m, col15=ar_note_m,  col20=nwc_note_y, col25=ar_note_y
-# (col indices are 0-based → openpyxl column = index+1)
-# ═══════════════════════════════════════════════════════════════════════════════
-section_header(123, "SECTION 10 — CASH DASHBOARD TILES  (USD Millions)")
-ws.cell(row=124, column=1, value="Each tile: value row then note row (text). Columns K,P = month tiles; U,Z = YTD tiles.")
-ws.cell(row=124, column=1).font = Font(size=9, italic=True)
-
-ws.cell(row=126, column=11, value="← CASH BALANCE (Mo) →").font = font(bold=True)
-ws.cell(row=126, column=16, value="← COLLECTIONS (Mo) →").font = font(bold=True)
-ws.cell(row=126, column=21, value="← CASH BALANCE (YTD) →").font = font(bold=True)
-ws.cell(row=126, column=26, value="← COLLECTIONS (YTD) →").font = font(bold=True)
-
-ws.cell(row=127, column=11, value="Label").fill = fill(C_SUBHDR); ws.cell(row=127,column=11).font=font(bold=True)
-ws.cell(row=127, column=16, value="Label").fill = fill(C_SUBHDR); ws.cell(row=127,column=16).font=font(bold=True)
-ws.cell(row=127, column=21, value="Label").fill = fill(C_SUBHDR); ws.cell(row=127,column=21).font=font(bold=True)
-ws.cell(row=127, column=26, value="Label").fill = fill(C_SUBHDR); ws.cell(row=127,column=26).font=font(bold=True)
-
-ws.row_dimensions[128].height = 4
-
-# Cash tile values — row 135 (col index 10 = openpyxl col 11)
-#                                             col idx: 10        15          20         25
-ws.cell(row=129, column=11, value="NWC (Mo)").fill = fill(C_SUBHDR); ws.cell(row=129,column=11).font=font(bold=True)
-ws.cell(row=129, column=16, value="AR (Mo)").fill  = fill(C_SUBHDR); ws.cell(row=129,column=16).font=font(bold=True)
-ws.cell(row=129, column=21, value="NWC (YTD)").fill = fill(C_SUBHDR); ws.cell(row=129,column=21).font=font(bold=True)
-ws.cell(row=129, column=26, value="AR (YTD)").fill  = fill(C_SUBHDR); ws.cell(row=129,column=26).font=font(bold=True)
-
-ws.row_dimensions[130].height = 8
-
-# Row 135: cash tile VALUE row
-def cash_cell(row, col_0idx, val, note=None):
-    c = ws.cell(row=row, column=col_0idx+1, value=val)
-    c.fill = fill(C_AMBER); c.number_format = FMT_2D; c.font=font(bold=True)
-    if note is not None:
-        n = ws.cell(row=row+1, column=col_0idx+1, value=note)
-        n.fill = fill(C_AMBER); n.font=Font(size=9, italic=True)
-
-# 2-row group labels
-ws.cell(row=133, column=1, value="► Cash tile section — edit values and notes in yellow cells").font=Font(size=9,italic=True)
-ws.cell(row=134, column=1, value="Row 135 = value / Row 136 = note / Row 138 = value / Row 139 = note").font=Font(size=9,color="595959",italic=True)
-
-cash_cell(135, 10, 4.08, "29.1 months runway")          # cash_val_m, cash_note_m
-cash_cell(135, 15, 2.40, "Budget $2.50M invoiced")       # coll_val_m, coll_note_m
-cash_cell(135, 20, 4.08, "opened the year at $4.80M")    # cash_val_y, cash_note_y
-cash_cell(135, 25, 13.35,"on $14.35M invoiced YTD")      # coll_val_y, coll_note_y
-
-cash_cell(138, 10, 3.20, "+$0.40M vs prior month")       # nwc_val_m, nwc_note_m
-cash_cell(138, 15, 7.10, "88% collection rate")          # ar_val_m,  ar_note_m
-cash_cell(138, 20, 1.40, "movement YTD · closing $2.50M")# nwc_val_y, nwc_note_y
-cash_cell(138, 25, 7.10, "from $5.70M at 1 Jan")         # ar_val_y,  ar_note_y
-
-ws.row_dimensions[140].height = 8
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# CASH BRIDGE MONTH — rows 143–150
-# etl reads: col0=name, col2=running, col4=total_value, col5=inflow, col6=outflow
-# ═══════════════════════════════════════════════════════════════════════════════
-section_header(141, "SECTION 11 — CASH BRIDGE (MONTH)  (USD Millions)")
-col_headers(142, ["Step","▶ Running after","(ignore)","(ignore)","▶ Total (open/close)","▶ Inflow","▶ Outflow"], start_col=1)
-
-# Bridge: col A=name, col C(idx2)=running, col E(idx4)=total, col F(idx5)=inflow, col G(idx6)=outflow
-BRIDGE_MO = [
-    # name,              total, inflow, outflow, running
-    ("Opening cash",     4.40,  0,     0,       4.40),
-    ("Collections",      0,     2.40,  0,       6.80),
-    ("Other inflows",    0,     0.10,  0,       6.90),
-    ("Operating costs",  0,     0,     2.08,    4.82),
-    ("Capex",            0,     0,     0.16,    4.66),
-    ("Debt service",     0,     0,     0.16,    4.50),
-    ("Other outflows",   0,     0,     0.42,    4.08),
-    ("Closing cash",     4.08,  0,     0,       4.08),
+BRIDGE_Y = [
+    ("Opening cash — 1 Jan 2026",  "Opening",  4.80),
+    ("Collections",                "Inflow",  13.35),
+    ("Other inflows",              "Inflow",   0.59),
+    ("Operating costs",            "Outflow", 11.99),
+    ("Capex",                      "Outflow",  0.89),
+    ("Debt service",               "Outflow",  0.89),
+    ("Other outflows",             "Outflow",  0.89),
+    ("Closing cash — 30 Jun 2026", "Closing",  4.08),
 ]
-for i, (nm, tot, inf, out, run) in enumerate(BRIDGE_MO):
-    r = 143+i
-    is_tot = tot > 0
-    data_row(r, [nm, run, None, None, tot if is_tot else None,
-                 inf if inf > 0 else None, out if out > 0 else None],
-             total=is_tot, input_=True)
+r = bridge_block(ws, r, "  CASH BRIDGE — MONTH  (USD M)",
+                 'Type must be one of: Opening, Inflow, Outflow, Closing. Enter every amount as POSITIVE.',
+                 "Bridge Step (Month)", BRIDGE_M)
+r = bridge_block(ws, r, "  CASH BRIDGE — YEAR TO DATE  (USD M)",
+                 'Same rules as the monthly bridge. Opening is the 1 January balance.',
+                 "Bridge Step (YTD)", BRIDGE_Y)
 
-ws.row_dimensions[151].height = 8
+section_bar(ws, r, "  MONTHLY CLOSING CASH  (USD M)", width=4); r += 1
+note(ws, r, "Drives the cash balance line chart. Cover as many months as you want to show — it can run wider than the P&L months."); r += 1
+note(ws, r, "Forecast = Y draws a dashed line. Illustrative = Y draws a hollow marker and shows the 'indicative' flag."); r += 1
+headers(ws, r, ["Cash Month", "Closing cash", "Forecast?", "Illustrative?"]); r += 1
 
-# CASH BRIDGE YTD — rows 154–161
-section_header(152, "SECTION 12 — CASH BRIDGE (YEAR-TO-DATE)  (USD Millions)")
-col_headers(153, ["Step","▶ Running after","(ignore)","(ignore)","▶ Total (open/close)","▶ Inflow","▶ Outflow"], start_col=1)
-
-BRIDGE_YTD = [
-    ("Opening cash — 1 Jan 2026",    4.80,  0,     0,      4.80),
-    ("Collections",                  0,    13.35,  0,     18.15),
-    ("Other inflows",                0,     0.59,  0,     18.74),
-    ("Operating costs",              0,     0,    11.99,   6.75),
-    ("Capex",                        0,     0,     0.89,   5.86),
-    ("Debt service",                 0,     0,     0.89,   4.97),
-    ("Other outflows",               0,     0,     0.89,   4.08),
-    ("Closing cash — 30 Jun 2026",   4.08,  0,     0,      4.08),
+CASH_MONTHLY = [
+    ("Jul-25", 5.35, "No",  "Yes"), ("Aug-25", 5.22, "No",  "Yes"),
+    ("Sep-25", 5.10, "No",  "Yes"), ("Oct-25", 5.02, "No",  "Yes"),
+    ("Nov-25", 4.91, "No",  "Yes"), ("Dec-25", 4.80, "No",  "No"),
+    ("Jan-26", 4.62, "No",  "No"),  ("Feb-26", 4.55, "No",  "No"),
+    ("Mar-26", 4.49, "No",  "No"),  ("Apr-26", 4.44, "No",  "No"),
+    ("May-26", 4.40, "No",  "No"),  ("Jun-26", 4.08, "No",  "No"),
+    ("Jul-26", 3.95, "Yes", "No"),  ("Aug-26", 3.86, "Yes", "No"),
+    ("Sep-26", 3.80, "Yes", "No"),  ("Oct-26", 3.72, "Yes", "No"),
+    ("Nov-26", 3.66, "Yes", "No"),  ("Dec-26", 3.58, "Yes", "No"),
 ]
-for i, (nm, tot, inf, out, run) in enumerate(BRIDGE_YTD):
-    r = 154+i
-    is_tot = tot > 0
-    data_row(r, [nm, run, None, None, tot if is_tot else None,
-                 inf if inf > 0 else None, out if out > 0 else None],
-             total=is_tot, input_=True)
+for mo, val, fc, ill in CASH_MONTHLY:
+    put(ws, r, 1, mo,  kind="input")
+    put(ws, r, 2, val, kind="input", fmt=FMT_M)
+    put(ws, r, 3, fc,  kind="input", halign="center")
+    put(ws, r, 4, ill, kind="input", halign="center")
+    r += 1
+r += 1
 
-ws.row_dimensions[162].height = 8
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# RUNWAY — rows 166–169  (etl reads col 1 for each value)
-# ═══════════════════════════════════════════════════════════════════════════════
-section_header(163, "SECTION 13 — CASH RUNWAY METRICS")
-col_headers(165, ["Metric","Value"], start_col=1)
-
+section_bar(ws, r, "  RUNWAY METRICS", width=3); r += 1
+note(ws, r, "Burn figures are negative when cash is being consumed."); r += 1
+headers(ws, r, ["Runway Metric", "Value", "Notes"]); r += 1
 RUNWAY = [
-    ("Monthly cash burn (latest month, USD M)", -0.32),
-    ("Trailing 3-month average burn (USD M)",   -0.14),
-    ("YTD net cash movement (USD M)",           -0.72),
-    ("Cash runway (months)",                    29.14),
+    ("Monthly cash burn",            -0.32, "Net cash movement in the latest month (USD M)"),
+    ("Trailing 3-month average burn", -0.14, "Average of the last three months (USD M)"),
+    ("YTD net cash movement",        -0.72, "Closing cash less opening cash (USD M)"),
+    ("Cash runway (months)",         29.14, "Cash ÷ 3-month average burn"),
 ]
-for i, (label, val) in enumerate(RUNWAY):
-    data_row(166+i, [label, val], input_=True)
+for metric, val, nt in RUNWAY:
+    put(ws, r, 1, metric, kind="plain")
+    put(ws, r, 2, val, kind="input", fmt=FMT_M if "months" not in metric else FMT_NUM)
+    put(ws, r, 3, nt, kind="plain")
+    r += 1
 
-ws.row_dimensions[170].height = 8
+ws.sheet_view.showGridLines = False
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# KEY UPDATES — rows 174+  (etl reads col0=num, col1=topic, col3=text)
-# ═══════════════════════════════════════════════════════════════════════════════
-section_header(171, "SECTION 14 — KEY NARRATIVE UPDATES")
-col_headers(173, ["#","Topic","(blank)","Update text (plain paragraph)"], start_col=1)
-ws.column_dimensions["D"].width = 80
-ws.row_dimensions[172].height = 4
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 9 — KEY UPDATES
+# ══════════════════════════════════════════════════════════════════════════════
+ws = wb.create_sheet("Key Updates")
+widths(ws, {"A": 6, "B": 24, "C": 105})
+
+r = 1
+section_bar(ws, r, "  KEY NARRATIVE UPDATES", width=3); r += 1
+note(ws, r, "One row per commentary point, shown in order at the bottom of the dashboard. Add or remove rows freely."); r += 1
+headers(ws, r, ["#", "Topic", "Commentary"]); r += 1
 
 UPDATES = [
-    (1, "Revenue",        "June revenue of $2.50M landed at 94.3% of budget, missing plan in five of the first six months of the year. YTD revenue of $14.35M is $0.90M (5.9%) behind budget."),
-    (2, "Margin",         "EBITDA of $0.36M gave a 14.4% margin against a 17.4% budget. YTD EBITDA of $2.16M is $0.44M behind plan; the gap is driven by revenue, not cost overrun."),
-    (3, "Costs",          "Cost control is holding — total costs ran at 97.7% of budget for the month and 96.4% YTD. The underspend has absorbed a meaningful share of the revenue shortfall."),
-    (4, "Collections",    "The June collection rate of 96.0% is the strongest month of the year so far. AR stands at $6.70M, of which $1.90M (28.4%) is now 60+ days overdue."),
-    (5, "Working capital","Net working capital has absorbed $1.40M of cash since 1 January, almost entirely through the AR build. Payables have been drawn down $0.20M over the same period."),
-    (6, "Cash",           "Cash closed at $4.08M, down $0.72M since 1 January. At the trailing three-month burn of $0.14M per month that is 29.1 months of runway, before the $1.50M current portion of Facility A."),
+    ("Revenue",         "June revenue of $2.50M landed at 94.3% of budget, missing plan in five of the first six months of the year. YTD revenue of $14.35M is $0.90M (5.9%) behind budget."),
+    ("Margin",          "EBITDA of $0.36M gave a 14.4% margin against a 17.4% budget. YTD EBITDA of $2.16M is $0.44M behind plan; the gap is driven by revenue, not cost overrun."),
+    ("Costs",           "Cost control is holding — total costs ran at 97.7% of budget for the month and 96.4% YTD. The underspend has absorbed a meaningful share of the revenue shortfall."),
+    ("Collections",     "The June collection rate of 96.0% is the strongest month of the year so far. AR stands at $6.70M, of which $1.90M (28.4%) is now 60+ days overdue."),
+    ("Working capital", "Net working capital has absorbed $1.40M of cash since 1 January, almost entirely through the AR build. Payables have been drawn down $0.20M over the same period."),
+    ("Cash",            "Cash closed at $4.08M, down $0.72M since 1 January. At the trailing three-month burn of $0.14M per month that is 29.1 months of runway, before the $1.50M current portion of Facility A."),
 ]
-for i, (num, topic, text) in enumerate(UPDATES):
-    r = 174+i
-    ws.cell(row=r, column=1, value=num)
-    ws.cell(row=r, column=2, value=topic).fill = fill(C_AMBER)
-    ws.cell(row=r, column=4, value=text).fill  = fill(C_AMBER)
-    ws.cell(row=r, column=4).alignment = Alignment(wrap_text=True, vertical="top")
-    ws.row_dimensions[r].height = 40
+for i, (topic, text) in enumerate(UPDATES, 1):
+    put(ws, r, 1, i, kind="plain", halign="center")
+    put(ws, r, 2, topic, kind="input")
+    put(ws, r, 3, text,  kind="input", wrap=True)
+    ws.row_dimensions[r].height = 46
+    r += 1
 
-# ── Freeze panes & print setup ────────────────────────────────────────────────
-ws.freeze_panes = "B9"
-ws.sheet_properties.tabColor = C_DARK
+ws.sheet_view.showGridLines = False
 
-wb.save(OUT)
-print(f"✓ Created {OUT}")
-print("  Open in Excel, update the yellow cells, then run:")
-print(f"  python etl_pl.py --file {OUT}")
+wb.save(args.out)
+print(f"✓ Created {args.out}")
+print(f"  Tabs: {', '.join(wb.sheetnames)}")
