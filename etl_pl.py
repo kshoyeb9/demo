@@ -4,8 +4,8 @@ etl_pl.py — Rebuilds the Noon P&L dashboard from the input workbook.
 Usage:
     python etl_pl.py --file noon_dashboard_input.xlsx [--out index.html]
 
-Tables are located by their HEADER TEXT, not by row number, so you can insert or
-delete rows in the workbook freely. Only raw input cells are read; every derived
+All data lives on the 'Dashboard Input' tab. Tables are located by their HEADER
+TEXT, not by row number, so you can insert or delete rows in the workbook freely. Only raw input cells are read; every derived
 figure (variances, margins, shares, running balances) is computed here, so the
 workbook's own formulas never need to have been recalculated.
 """
@@ -44,11 +44,17 @@ MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun",
               "Jul","Aug","Sep","Oct","Nov","Dec"]
 
 # ── Generic table reader ──────────────────────────────────────────────────────
-def sheet(name):
-    if name not in wb.sheetnames:
-        sys.exit(f"Sheet '{name}' missing from {xl_path.name}. "
-                 f"Found: {', '.join(wb.sheetnames)}")
-    return wb[name]
+DATA_SHEET = "Dashboard Input"
+
+def sheet(name=DATA_SHEET):
+    """All data lives on one tab; 'Instructions' is prose and is never read."""
+    if name in wb.sheetnames:
+        return wb[name]
+    candidates = [n for n in wb.sheetnames if n.strip().lower() != "instructions"]
+    if len(candidates) == 1:
+        return wb[candidates[0]]
+    sys.exit(f"Sheet '{name}' missing from {xl_path.name}. "
+             f"Found: {', '.join(wb.sheetnames)}")
 
 def grid(ws):
     return list(ws.iter_rows(values_only=True))
@@ -61,22 +67,28 @@ def find_header(rows, header_text, col=0):
             return i
     return None
 
-def read_table(ws, header_text, ncols, *, col=0, stop_on_total=True):
-    """Rows under `header_text` until a blank first cell. Totals rows are dropped
-    (they are recomputed here). Returns a list of value-tuples of width ncols."""
+def read_table(ws, header_text, ncols, *, col=0, stop_on_total=True, stop_labels=()):
+    """Rows under `header_text` until a blank first cell. Total rows are dropped
+    (they are recomputed here). Returns a list of value-tuples of width ncols.
+
+    `stop_labels` adds table-specific terminators. Keep these per-call, never
+    global: a label that ends one table can be a legitimate data row in another
+    (e.g. 'Net working capital' terminates the WC YTD table but is a cash tile)."""
     rows = grid(ws)
     h = find_header(rows, header_text, col)
     if h is None:
         sys.exit(f"Header '{header_text}' not found on sheet '{ws.title}'. "
                  f"Do not rename or delete a table's header row.")
+    extra = {s.strip().lower() for s in stop_labels}
     out = []
     for r in rows[h + 1:]:
         first = r[col] if col < len(r) else None
         if first is None or str(first).strip() == "":
             break
         label = str(first).strip().lower()
-        if stop_on_total and (label.startswith("total") or label.startswith("ytd total")
-                              or label == "net working capital"):
+        if label in extra:
+            break
+        if stop_on_total and label.startswith("total"):
             break
         out.append(tuple(r[i] if i < len(r) else None for i in range(col, col + ncols)))
     return out
@@ -106,7 +118,7 @@ def blk(actual, budget):
 
 
 # ══ SETUP ═════════════════════════════════════════════════════════════════════
-ws = sheet("Setup")
+ws = sheet()
 rows = grid(ws)
 
 def setting(label, default=""):
@@ -123,7 +135,7 @@ fiscal_year = str(setting("Fiscal year label", ""))
 fy_start    = int(num(setting("Fiscal year start month", 7), 7))
 currency    = str(setting("Currency label", "USD M"))
 
-month_rows = read_table(ws, "Month", 2)
+month_rows = read_table(ws, "Setup Month", 2)
 months      = [str(r[1]).strip() for r in month_rows if r[1]]
 months_full = [str(r[0]).strip() for r in month_rows if r[0]]
 if not months:
@@ -143,7 +155,7 @@ meta = {
 }
 
 # ══ P&L MONTHLY  (read first — the P&L blocks attach these series) ════════════
-ws_m = sheet("P&L Monthly")
+ws_m = ws
 n_months = len(months)
 
 def monthly_block(header):
@@ -177,7 +189,7 @@ def sum_series(maps, names):
 
 
 # ══ P&L TAB ═══════════════════════════════════════════════════════════════════
-ws_p = sheet("P&L")
+ws_p = ws
 
 def avb_rows(header):
     return [(str(r[0]).strip(), num(r[1]), num(r[2]), num(r[3]), num(r[4]))
@@ -314,9 +326,9 @@ for r in revenue:
 
 
 # ══ WORKING CAPITAL ═══════════════════════════════════════════════════════════
-ws_w = sheet("Working Capital")
+ws_w = ws
 wc_monthly, prev_nwc = [], None
-for r in read_table(ws_w, "Month", 8):
+for r in read_table(ws_w, "WC Month", 8):
     ar_, ap_, dfr, oth = num(r[1]), num(r[2]), num(r[3]), num(r[4])
     nwc = ar_ + ap_ + dfr + oth
     entry = {"month": str(r[0]).strip(), "ar": rnd(ar_), "ap": rnd(ap_),
@@ -328,7 +340,7 @@ for r in read_table(ws_w, "Month", 8):
     wc_monthly.append(entry)
 
 wc_ytd = []
-for r in read_table(ws_w, "WC Item", 5):
+for r in read_table(ws_w, "WC Item", 5, stop_labels=("Net working capital",)):
     op, cl = num(r[1]), num(r[2])
     wc_ytd.append({"item": str(r[0]).strip(), "open": rnd(op), "close": rnd(cl),
                    "movement": rnd(cl - op), "cash_impact": rnd(-(cl - op))})
@@ -339,9 +351,9 @@ if wc_ytd:
 
 
 # ══ AR ════════════════════════════════════════════════════════════════════════
-ws_ar = sheet("AR")
+ws_ar = ws
 ar_monthly = []
-for r in read_table(ws_ar, "Month", 6):
+for r in read_table(ws_ar, "AR Month", 6):
     op, inv, coll = num(r[1]), num(r[2]), num(r[3])
     ar_monthly.append({"month": str(r[0]).strip(), "opening": rnd(op),
                        "invoiced": rnd(inv), "collected": rnd(coll),
@@ -366,9 +378,9 @@ ar_by_contract = [{"contract": str(r[0]).strip(), "amount": rnd(num(r[1]))}
 
 
 # ══ AP ════════════════════════════════════════════════════════════════════════
-ws_ap = sheet("AP")
+ws_ap = ws
 ap_monthly = []
-for r in read_table(ws_ap, "Month", 6):
+for r in read_table(ws_ap, "AP Month", 6):
     op, pur, pay = num(r[1]), num(r[2]), num(r[3])
     ap_monthly.append({"month": str(r[0]).strip(), "opening": rnd(op),
                        "purchases": rnd(pur), "payments": rnd(pay),
@@ -393,17 +405,24 @@ ap_by_vendor = [{"vendor": str(r[0]).strip(), "amount": rnd(num(r[1]))}
 
 
 # ══ CASH ══════════════════════════════════════════════════════════════════════
-ws_c = sheet("Cash")
+ws_c = ws
 
 TILE_KEY = {"cash balance": "cash", "collections": "collections",
             "net working capital": "nwc", "accounts receivable": "ar"}
 cash_tiles = {"month": {}, "ytd": {}}
-for r in read_table(ws_c, "Cash Tile", 5):
+for r in read_table(ws_c, "Cash Tile", 8):
     key = TILE_KEY.get(str(r[0]).strip().lower())
     if not key:
         continue
+    # Note cells are merged across three columns, so YTD starts at index 5
     cash_tiles["month"][key] = {"value": rnd(num(r[1])), "note": str(r[2] or "")}
-    cash_tiles["ytd"][key]   = {"value": rnd(num(r[3])), "note": str(r[4] or "")}
+    cash_tiles["ytd"][key]   = {"value": rnd(num(r[5])), "note": str(r[6] or "")}
+
+missing_tiles = set(TILE_KEY.values()) - set(cash_tiles["month"])
+if missing_tiles:
+    sys.exit(f"Cash tiles missing: {', '.join(sorted(missing_tiles))}. "
+             f"The 'Cash Tile' table needs one row per tile, with no blank rows "
+             f"between them: {', '.join(TILE_KEY)}.")
 
 def read_bridge(header):
     """Opening/Inflow/Outflow/Closing rows → waterfall steps with running balances."""
@@ -453,9 +472,9 @@ runway.setdefault("ytd_move", 0);   runway.setdefault("months", 0)
 
 
 # ══ KEY UPDATES ═══════════════════════════════════════════════════════════════
-ws_k = sheet("Key Updates")
+ws_k = ws
 key_updates = [{"topic": str(r[1]).strip(), "text": str(r[2]).strip()}
-               for r in read_table(ws_k, "#", 3) if r[1] and r[2]]
+               for r in read_table(ws_k, "Update #", 3) if r[1] and r[2]]
 
 
 # ══ ASSEMBLE & INJECT ═════════════════════════════════════════════════════════
