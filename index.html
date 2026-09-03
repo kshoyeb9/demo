@@ -130,7 +130,14 @@
   .tiles.six .tile .val{font-size:25px;height:27px}
   .tile .val small{font-size:14px;font-weight:500;color:var(--ink-2);margin-left:3px}
   .tile .sub{font-size:12px;color:var(--ink-3);min-height:18px;line-height:1.4}
-  .tile .chip{margin-top:8px}
+  /* Top-aligned, not bottom-aligned: a chip that wraps to two lines must still
+     start its first line level with the others, so the row of status lines
+     reads as one band. The sub above it is what reserves the space. */
+  .tile .chip{margin-top:0;padding-top:8px}
+  /* Six across is the tight row: reserve two lines for the sub and two for
+     the chip so a wrap in one tile cannot shift the status line in another. */
+  .tiles.six .tile .sub{min-height:2.8em}
+  .tiles.six .tile .chip{min-height:2.8em}
   /* No fill: the status reads from the colour of the text and its arrow, so a
      long label wraps instead of being clipped by a fixed-width box. */
   .chip{display:flex;align-items:flex-start;justify-content:flex-start;gap:5px;min-height:20px;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.4;margin-top:auto}
@@ -619,7 +626,7 @@ const D0=DATA, M=D0.meta, MONTHS=M.months, LAST=M.period_index, FYS=M.fy_start_m
    computed on the displayed numbers and axis ticks still land on round values.
    Ratios (% of budget, margins, collection rate, aging share), day counts
    (DPO) and month counts (runway) are NOT currency and are never scaled. */
-const FX={USD:{rate:1,sym:'$',unit:'USD'}, SAR:{rate:3.75,sym:'SR ',unit:'SAR'}};
+const FX={USD:{rate:1,sym:'$',unit:'USD'}, SAR:{rate:3.75,sym:'SAR ',unit:'SAR'}};
 let CUR='USD';
 const SY=()=>FX[CUR].sym, UNIT=()=>FX[CUR].unit+' M';
 
