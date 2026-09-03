@@ -27,6 +27,8 @@ ap.add_argument("--file", default="noon_dashboard_input.xlsx")
 ap.add_argument("--out",  default="index.html")
 ap.add_argument("--template", default=None,
                 help="HTML template to inject into (defaults to --out)")
+ap.add_argument("--publish-out", default="dashboard.publish.html",
+                help="Also write a bare-content copy for publishing as an Artifact")
 args = ap.parse_args()
 
 xl_path  = Path(args.file)
@@ -502,6 +504,18 @@ new_html, n = re.subn(r"const DATA\s*=\s*\{.*?\};",
 if n == 0:
     sys.exit("Could not find 'const DATA = {...};' in the template.")
 out_path.write_text(new_html, encoding="utf-8")
+
+# Artifact publishing wraps page content in its own document shell, so the
+# published copy must not carry a doctype/html/head/body of its own. Strip the
+# outer document, keeping everything between <body> and </body>.
+publish_path = Path(args.publish_out) if args.publish_out else None
+if publish_path:
+    try:
+        start = new_html.index("<body>") + len("<body>")
+        end   = new_html.rindex("</body>")
+        publish_path.write_text(new_html[start:end].strip() + "\n", encoding="utf-8")
+    except ValueError:
+        publish_path = None   # template was already bare content; nothing to strip
 
 # ── Report ────────────────────────────────────────────────────────────────────
 def warn(msg):

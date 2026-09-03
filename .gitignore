@@ -5,3 +5,6 @@ __pycache__/
 *.pdf
 fy_data.json
 assets/
+
+# Derived from index.html by etl_pl.py for Artifact publishing
+dashboard.publish.html
