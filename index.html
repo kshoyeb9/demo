@@ -86,7 +86,7 @@
   /* Grid & cards — square corners, hairline borders, no shadows (rules §11) */
   .grid{display:grid;gap:16px}
   .g2{grid-template-columns:1fr 1fr}
-  .g-aging{grid-template-columns:700fr 460fr}
+  .g-aging{grid-template-columns:1fr 1fr}
   .card{background:var(--surface);border:1px solid var(--hair);padding:16px 18px 14px;min-width:0}
   .card-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px}
   .card-h h3{font-size:13.5px;font-weight:700}
@@ -104,7 +104,9 @@
   .dummy{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange-deep);border:1px solid var(--orange);padding:0 6px;margin-left:8px;vertical-align:2px}
 
   /* KPI tiles — one skeleton for every tile: rule, label, value, sub, chip.
-     Fixed heights on each part keep the shaded chips aligned across panels. */
+     Label and value keep fixed heights so values align across panels; the sub
+     and chip below them grow with their text, and the chip is pushed to the
+     bottom of the tile so the row of chips still lines up. */
   .panels{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .panel{background:var(--surface);border:1px solid var(--hair)}
   .panel.wide{grid-column:1/-1}
@@ -122,12 +124,14 @@
   .tile .val{font-size:30px;font-weight:700;line-height:1;height:32px;margin:8px 0 6px;letter-spacing:-.01em;white-space:nowrap}
   .tiles.six .tile .val{font-size:25px;height:27px}
   .tile .val small{font-size:14px;font-weight:500;color:var(--ink-2);margin-left:3px}
-  .tile .sub{font-size:12px;color:var(--ink-3);height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .tile .chip{margin-top:10px}
-  .chip{display:flex;align-items:center;justify-content:flex-start;gap:5px;padding:0 8px;height:24px;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .chip.good{background:var(--good-bg);color:var(--good-ink)}
-  .chip.bad{background:var(--bad-bg);color:var(--bad-ink)}
-  .chip.flat{background:var(--flat-bg);color:var(--ink-2)}
+  .tile .sub{font-size:12px;color:var(--ink-3);min-height:18px;line-height:1.4}
+  .tile .chip{margin-top:8px}
+  /* No fill: the status reads from the colour of the text and its arrow, so a
+     long label wraps instead of being clipped by a fixed-width box. */
+  .chip{display:flex;align-items:flex-start;justify-content:flex-start;gap:5px;min-height:20px;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.4;margin-top:auto}
+  .chip.good{color:var(--good-ink)}
+  .chip.bad{color:var(--bad-ink)}
+  .chip.flat{color:var(--ink-2)}
 
   /* Tables — dark-blue header, white / cream-light rows (rules §6.7) */
   .tbl-wrap{overflow-x:auto}
@@ -413,7 +417,7 @@ const rect = (x,y,w,h,fill,extra={}) => svgEl('rect',{x,y,width:Math.max(w,0),he
 function mount(id, svg){ $(id).replaceChildren(svg); }
 
 /* Fixed chart frames */
-const FR = {half:{W:560,H:250}, wide:{W:700,H:250}, narrow:{W:460,H:250}, full:{W:1160,H:250}};
+const FR = {half:{W:560,H:250}, wide:{W:700,H:250}, narrow:{W:460,H:250}, aging:{W:580,H:250}, full:{W:1160,H:250}};
 
 /* ───────── horizontal actual bars + budget marker ───────── */
 function bulletChart(id, rows, get, opts={}){
@@ -551,8 +555,15 @@ function hbarChart(id, items, opts={}){
   const rowH=(H-padT-padB)/items.length, bh=Math.min(22,rowH*0.55);
   const max=Math.max(...items.map(b=>b.amount),0.01); const sx=v=>padL+(v/max)*(W-padL-padR);
   const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`});
+  /* Category labels are right-anchored at padL, so anything wider than the
+     gutter runs off the left of the viewBox. Trim to what fits; the tooltip
+     still carries the full name. */
+  const maxChars=Math.max(8,Math.floor((padL-14)/5.9));
+  const clip=s=>{ s=String(s); return s.length>maxChars ? s.slice(0,maxChars-1).trimEnd()+'…' : s; };
   items.forEach((b,i)=>{ const y=padT+i*rowH+(rowH-bh)/2; const col=css(opts.colors?opts.colors[i]:(opts.color||'--s1'));
-    svg.appendChild(txt(padL-12,y+bh/2+4,b.label,{'text-anchor':'end',class:'cat'}));
+    const lab=txt(padL-12,y+bh/2+4,clip(b.label),{'text-anchor':'end',class:'cat'});
+    if(clip(b.label)!==String(b.label)){ const t=svgEl('title'); t.textContent=b.label; lab.appendChild(t); }
+    svg.appendChild(lab);
     const bar=rect(padL,y,sx(b.amount)-padL,bh,col,{class:'mark'}); svg.appendChild(bar);
     svg.appendChild(txt(sx(b.amount)+8,y+bh/2+4,fM(b.amount)+(b.share!=null?'  ·  '+fP(b.share,0):''),{class:'lbl'}));
     bind(bar,b.label,[{label:'Amount',value:fM(b.amount),color:col},...(b.share!=null?[{label:'Share of total',value:fP(b.share)}]:[]),...(opts.total!=null?[{label:'Total',value:fM(opts.total)}]:[])]); });
@@ -694,10 +705,10 @@ function render(){
   $('#wc-note').textContent=`Rows in the selected period are shaded. Months after ${M.period} are forecast (F). A rise in net working capital consumes cash.`;
 
   $('#ar-aging-scope').textContent=`as at ${asAt} · total ${fM(D.ar_aging_total)}`;
-  hbarChart('#ch-ar-aging', D.ar_aging.map(b=>({label:b.bucket.replace(' — ',' · '),amount:b.amount,share:b.share})), {frame:'wide', padL:215, colors:['--s1','--s2','--s3'], total:D.ar_aging_total});
+  hbarChart('#ch-ar-aging', D.ar_aging.map(b=>({label:b.bucket.replace(' — ',' · '),amount:b.amount,share:b.share})), {frame:'aging', padL:200, colors:['--s1','--s2','--s3'], total:D.ar_aging_total});
   const arcTot=sum(D.ar_by_contract.map(c=>c.amount));
   $('#ar-contract-scope').textContent=`as at ${asAt} · total ${fM(arcTot)}`;
-  hbarChart('#ch-ar-contract', D.ar_by_contract.map(c=>({label:c.contract,amount:c.amount,share:c.amount/arcTot})), {frame:'narrow', padL:92});
+  hbarChart('#ch-ar-contract', D.ar_by_contract.map(c=>({label:c.contract,amount:c.amount,share:c.amount/arcTot})), {frame:'aging', padL:200, total:arcTot});
 
   const arAll=MONTHS.map(m=>D.ar_monthly.find(r=>r.month.startsWith(m))).filter(Boolean);
   const apAll=MONTHS.map(m=>D.ap_monthly.find(r=>r.month.startsWith(m))).filter(Boolean);
@@ -708,10 +719,10 @@ function render(){
   columnChart('#ch-ap', apAll.map(r=>r.month), [{name:'Purchases / accruals',values:apAll.map(r=>r.purchases),color:'--s2'},{name:'Payments made',values:apAll.map(r=>r.payments),color:'--s3'}], {dim});
 
   $('#ap-aging-scope').textContent=`as at ${asAt} · total ${fM(D.ap_aging_total)}`;
-  hbarChart('#ch-ap-aging', D.ap_aging.map(b=>({label:b.bucket.replace(' — ',' · '),amount:b.amount,share:b.share})), {frame:'wide', padL:215, colors:['--s1','--s2','--s3'], total:D.ap_aging_total});
+  hbarChart('#ch-ap-aging', D.ap_aging.map(b=>({label:b.bucket.replace(' — ',' · '),amount:b.amount,share:b.share})), {frame:'aging', padL:200, colors:['--s1','--s2','--s3'], total:D.ap_aging_total});
   const venTot=sum(D.ap_by_vendor.map(v=>v.amount));
   $('#ap-vendor-scope').textContent=`${M.period} · total ${fM(venTot)}`;
-  hbarChart('#ch-ap-vendor', D.ap_by_vendor.map(v=>({label:v.vendor,amount:v.amount,share:v.amount/venTot})), {frame:'narrow', padL:104, color:'--s3'});
+  hbarChart('#ch-ap-vendor', D.ap_by_vendor.map(v=>({label:v.vendor,amount:v.amount,share:v.amount/venTot})), {frame:'aging', padL:200, color:'--s3', total:venTot});
 
   /* 3 · Cash & liquidity */
   const ct=D.cash_tiles, bM=D.bridge_month, bY=D.bridge_ytd;
