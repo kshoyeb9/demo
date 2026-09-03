@@ -206,6 +206,9 @@ r += 1
 ibar(r, "  CONVENTIONS"); r += 1
 for k, vtext in [
     ("Units",           "All money is USD millions. Enter 2.5 for $2.5M — not 2500000."),
+    ("Currency",        "Always enter USD here, whatever the source ledger. The dashboard has a "
+                        "USD/SAR toggle that converts on display at 1 USD = 3.75 SAR; entering SAR "
+                        "in this workbook would double-convert it."),
     ("Percentages",     "Enter as a percentage-formatted number (96.0%), not 0.96 or 96."),
     ("Costs",           "Enter costs as POSITIVE numbers. The dashboard applies the sign."),
     ("Working capital", "Payables and deferred revenue are entered NEGATIVE — they are liabilities."),

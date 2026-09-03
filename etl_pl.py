@@ -90,7 +90,7 @@ def read_table(ws, header_text, ncols, *, col=0, stop_on_total=True, stop_labels
         label = str(first).strip().lower()
         if label in extra:
             break
-        if stop_on_total and label.startswith("total"):
+        if stop_on_total and (label.startswith("total") or label.startswith("ytd total")):
             break
         out.append(tuple(r[i] if i < len(r) else None for i in range(col, col + ncols)))
     return out
