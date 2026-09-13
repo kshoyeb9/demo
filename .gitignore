@@ -8,3 +8,6 @@ assets/
 
 # Derived from index.html by etl_pl.py for Artifact publishing
 dashboard.publish.html
+
+# Derived from cash.html by etl_cash.py for Artifact publishing
+cash.publish.html

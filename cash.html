@@ -1,0 +1,710 @@
+<title>Noon Cash Position</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  /* Noon brand tokens — NOON_TEMPLATE_RULES §3. No colours outside this palette. */
+  :root{
+    --dark-blue:#11203A; --dark-blue-deep:#0B1729; --green:#17E4A1; --green-deep:#0FB07F;
+    --orange:#FE814F; --orange-deep:#D16B41; --purple:#7C5CE1; --cream:#F4EEE0; --cream-light:#FAF6EC;
+    --white:#FFFFFF; --gray-dark:#5A6878; --gray-mid:#9AA4B0; --gray-light:#D6D6D6;
+
+    --ground:var(--white); --surface:var(--white); --surface-2:var(--cream-light); --surface-3:var(--cream);
+    --ink:var(--dark-blue); --ink-2:var(--gray-dark); --ink-3:var(--gray-mid); --hair:var(--gray-light);
+    --band:var(--dark-blue); --band-ink:var(--white); --band-muted:var(--gray-mid); --accent:var(--green);
+    --good-ink:var(--green-deep); --bad-ink:var(--orange-deep);
+    --good-bg:rgba(23,228,161,.16); --bad-bg:rgba(254,129,79,.16); --flat-bg:var(--cream);
+    --s1:var(--green); --s2:var(--dark-blue); --s3:var(--orange); --s4:var(--purple); --s5:var(--gray-dark);
+    --c-in:var(--green); --c-out:var(--orange); --c-total:var(--dark-blue);
+    --tip-bg:var(--dark-blue); --tip-ink:var(--cream);
+    --shade-base:17,32,58;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:var(--dark-blue-deep); --surface:var(--dark-blue); --surface-2:var(--dark-blue-deep); --surface-3:rgba(154,164,176,.12);
+      --ink:var(--cream); --ink-2:var(--gray-mid); --ink-3:var(--gray-dark); --hair:rgba(154,164,176,.28);
+      --band:var(--dark-blue-deep); --flat-bg:rgba(154,164,176,.14);
+      --good-ink:var(--green); --bad-ink:var(--orange);
+      --s2:var(--cream); --c-total:var(--cream); --shade-base:244,238,224;
+      --tip-bg:var(--cream); --tip-ink:var(--dark-blue);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:var(--dark-blue-deep); --surface:var(--dark-blue); --surface-2:var(--dark-blue-deep); --surface-3:rgba(154,164,176,.12);
+    --ink:var(--cream); --ink-2:var(--gray-mid); --ink-3:var(--gray-dark); --hair:rgba(154,164,176,.28);
+    --band:var(--dark-blue-deep); --flat-bg:rgba(154,164,176,.14);
+    --good-ink:var(--green); --bad-ink:var(--orange);
+    --s2:var(--cream); --c-total:var(--cream); --shade-base:244,238,224;
+    --tip-bg:var(--cream); --tip-ink:var(--dark-blue);
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font:14px/1.5 "IBM Plex Sans",Calibri,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{margin:0;font-weight:700;text-wrap:balance}
+  .eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+
+  /* Masthead */
+  .mast{background:var(--band);color:var(--band-ink)}
+  .mast-in{max-width:1320px;margin:0 auto;padding:22px 32px 20px;display:flex;justify-content:space-between;align-items:flex-end;gap:28px;flex-wrap:wrap}
+  .mast .eyebrow{color:var(--accent)}
+  .mast h1{font-size:26px;letter-spacing:-.01em;margin-top:4px}
+  .mast .sub{color:var(--band-muted);font-size:12px;margin-top:4px;max-width:660px}
+  .mast-right{font-size:12px;color:var(--band-muted);line-height:1.7}
+  .mast-right b{color:var(--band-ink);font-weight:600}
+
+  /* Period selector */
+  .period{display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+  .period .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .period label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+  .period select{appearance:none;background:var(--dark-blue-deep);color:var(--cream);border:1px solid var(--gray-dark);font:inherit;font-size:12.5px;font-weight:600;padding:5px 26px 5px 10px;cursor:pointer;background-image:linear-gradient(45deg,transparent 50%,var(--gray-mid) 50%),linear-gradient(135deg,var(--gray-mid) 50%,transparent 50%);background-position:calc(100% - 13px) 12px,calc(100% - 9px) 12px;background-size:4px 4px;background-repeat:no-repeat}
+  .period select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .period .arrow{color:var(--gray-mid)}
+  .quick{display:inline-flex;border:1px solid var(--gray-dark)}
+  .quick button{appearance:none;border:0;border-right:1px solid var(--gray-dark);background:transparent;color:var(--gray-mid);font:inherit;font-size:12px;font-weight:600;padding:5px 12px;cursor:pointer}
+  .quick button:last-child{border-right:0}
+  .quick button[aria-pressed="true"]{background:var(--green);color:var(--dark-blue)}
+  .quick button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .period .picked{font-size:12px;color:var(--band-muted)}
+  .period .picked b{color:var(--band-ink);font-weight:600}
+
+  /* Currency toggle — same control as the period quick-picks */
+  .cur-wrap{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .cur-wrap label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+  .cur-rate{font-size:11.5px;color:var(--band-muted);font-variant-numeric:tabular-nums}
+
+  /* Frame */
+  .frame{max-width:1320px;margin:0 auto;padding:24px 32px 64px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px}
+  nav.rail{position:sticky;top:20px;align-self:start;font-size:12.5px}
+  nav.rail a{display:flex;gap:10px;align-items:baseline;padding:7px 10px;border-left:2px solid var(--hair);color:var(--ink-2);text-decoration:none}
+  nav.rail a .n{font-size:11px;color:var(--ink-3);width:14px;font-variant-numeric:tabular-nums}
+  nav.rail a:hover{color:var(--ink)}
+  nav.rail a.on{border-left-color:var(--accent);color:var(--ink);font-weight:600}
+  nav.rail .rail-foot{margin-top:18px;padding:10px;font-size:11px;color:var(--ink-3);line-height:1.5}
+  main{min-width:0;display:flex;flex-direction:column;gap:44px}
+
+  section.sec{scroll-margin-top:16px}
+  .sec-head{display:flex;align-items:center;gap:14px;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--band)}
+  .sec-head .n{font-size:13px;font-weight:700;color:var(--green);background:var(--dark-blue);padding:4px 10px;font-variant-numeric:tabular-nums}
+  .sec-head h2{font-size:19px;font-weight:700;text-transform:uppercase;letter-spacing:.09em}
+  .sec-head .scope{margin-left:auto;font-size:12px;color:var(--ink-3)}
+
+  /* Grid & cards — square corners, hairline borders, no shadows (rules §11) */
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g-aging{grid-template-columns:1fr 1fr}
+  .card{background:var(--surface);border:1px solid var(--hair);padding:16px 18px 14px;min-width:0}
+  .card-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px}
+  .card-h h3{font-size:13.5px;font-weight:700}
+  .card-h .sub{font-size:12px;color:var(--ink-3);text-align:right}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-2);margin:0 0 8px;min-height:18px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:10px;height:10px;display:inline-block}
+  .legend i.line{height:2px;width:14px}
+  .legend i.dash{height:0;width:14px;border-top:2px dashed currentColor;background:none}
+  .legend i.mark{width:3px;height:12px}
+  .legend i.hollow{border:2px solid currentColor;background:var(--surface)}
+  .note{font-size:11.5px;color:var(--ink-3);margin-top:8px;line-height:1.45}
+  .note.flag{padding:8px 10px;background:var(--surface-2);color:var(--ink-2);border-left:2px solid var(--orange)}
+  .note.flag b{color:var(--ink)}
+  .dummy{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange-deep);border:1px solid var(--orange);padding:0 6px;margin-left:8px;vertical-align:2px}
+
+  /* KPI tiles — one skeleton for every tile: rule, label, value, sub, chip.
+     Label and value keep fixed heights so values align across panels; the sub
+     and chip below them grow with their text, and the chip is pushed to the
+     bottom of the tile so the row of chips still lines up. */
+  .panels{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .panel{background:var(--surface);border:1px solid var(--hair)}
+  .panel.wide{grid-column:1/-1}
+  .panel-h{display:flex;justify-content:space-between;align-items:baseline;padding:9px 18px;background:var(--band);color:var(--band-ink)}
+  .panel-h .eyebrow{color:var(--accent)}
+  .panel-h .when{font-size:12.5px;font-weight:600}
+  .tiles{display:grid;grid-template-columns:1fr 1fr}
+  .tiles.six{grid-template-columns:repeat(6,1fr)}
+  .tile{display:flex;flex-direction:column;padding:14px 18px;border-top:1px solid var(--hair);border-right:1px solid var(--hair);min-width:0}
+  .tiles:not(.six) .tile:nth-child(2n){border-right:0}
+  .tiles.six .tile:nth-child(6n){border-right:0}
+  .tile .rule{height:3px;width:28px;background:var(--accent);margin-bottom:10px;flex:none}
+  .tile.challenge .rule{background:var(--orange)}
+  .tile .label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tile .val{font-size:30px;font-weight:700;line-height:1;height:32px;margin:8px 0 6px;letter-spacing:-.01em;white-space:nowrap}
+  .tiles.six .tile .val{font-size:25px;height:27px}
+  .tile .val small{font-size:14px;font-weight:500;color:var(--ink-2);margin-left:3px}
+  .tile .sub{font-size:12px;color:var(--ink-3);min-height:18px;line-height:1.4}
+  /* Top-aligned, not bottom-aligned: a chip that wraps to two lines must still
+     start its first line level with the others, so the row of status lines
+     reads as one band. The sub above it is what reserves the space. */
+  .tile .chip{margin-top:0;padding-top:8px}
+  /* Six across is the tight row: reserve two lines for the sub and two for
+     the chip so a wrap in one tile cannot shift the status line in another. */
+  .tiles.six .tile .sub{min-height:2.8em}
+  .tiles.six .tile .chip{min-height:2.8em}
+  /* No fill: the status reads from the colour of the text and its arrow, so a
+     long label wraps instead of being clipped by a fixed-width box. */
+  .chip{display:flex;align-items:flex-start;justify-content:flex-start;gap:5px;min-height:20px;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.4;margin-top:auto}
+  .chip.good{color:var(--good-ink)}
+  .chip.bad{color:var(--bad-ink)}
+  .chip.flat{color:var(--ink-2)}
+
+  /* Tables — dark-blue header, white / cream-light rows (rules §6.7) */
+  .tbl-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.fixed{table-layout:fixed}
+  th,td{padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
+  th:first-child,td:first-child{text-align:left;font-weight:600}
+  thead th{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--white);background:var(--dark-blue)}
+  thead th.grp{text-align:center;border-bottom:1px solid var(--gray-dark)}
+  tbody td{background:var(--surface)}
+  tbody tr:nth-child(even) td{background:var(--surface-2)}
+  tr.total td{font-weight:700;border-top:1px solid var(--ink)}
+  tr.pct td{color:var(--ink-2);font-style:italic;font-weight:400}
+  tr.fc td{color:var(--ink-2)}
+  tr.fc td:first-child::after{content:"F";margin-left:6px;font-size:9.5px;font-weight:700;color:var(--orange-deep);border:1px solid var(--orange);padding:0 4px;vertical-align:1px}
+  tr.sel td{background:var(--surface-3)!important;font-weight:600}
+  td.pos{color:var(--good-ink)} td.neg{color:var(--bad-ink)}
+  td .sw{display:inline-block;width:8px;height:8px;margin-right:8px;vertical-align:1px}
+  td.dim{color:var(--ink-3)}
+  .tbl-title{font-size:13.5px;font-weight:700;margin:0 0 8px}
+
+  /* Charts — fixed frames so paired charts share height */
+  .chart{position:relative;width:100%}
+  .chart svg{display:block;width:100%;height:auto;overflow:visible}
+  .chart text{font-family:inherit;fill:var(--ink-2);font-size:11px}
+  .chart .axis text{fill:var(--ink-3)}
+  .chart .grid line{stroke:var(--hair);stroke-width:1}
+  .chart .base{stroke:var(--gray-mid);stroke-width:1}
+  .chart .lbl{fill:var(--ink);font-weight:600}
+  .chart .hit{fill:transparent}
+  .chart .mark:hover{opacity:.85}
+  .chart .xh{stroke:var(--gray-mid);stroke-width:1;opacity:0;pointer-events:none}
+  .chart .cat{font-size:11.5px;fill:var(--ink)}
+  .chart .fc-band{fill:var(--surface-2)}
+  .chart .fc-line{stroke:var(--orange);stroke-width:1}
+  .chart .fc-lbl{fill:var(--orange-deep);font-weight:700;font-size:10px;letter-spacing:.08em}
+  .chart .act-lbl{fill:var(--ink-2);font-weight:700;font-size:10px;letter-spacing:.08em}
+  #tip{position:fixed;z-index:50;pointer-events:none;background:var(--tip-bg);color:var(--tip-ink);padding:8px 10px;font-size:12px;line-height:1.45;opacity:0;transition:opacity .08s;max-width:280px}
+  #tip .t{font-weight:600;margin-bottom:3px;opacity:.85}
+  #tip .r{display:flex;justify-content:space-between;gap:14px}
+  #tip .r i{display:inline-block;width:12px;height:2px;margin-right:6px;vertical-align:3px}
+  #tip .r b{font-weight:600;font-variant-numeric:tabular-nums}
+
+  /* Key updates */
+  .updates{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+  .upd{padding:12px 14px;border:1px solid var(--hair);border-left:3px solid var(--accent);background:var(--surface)}
+  .upd .eyebrow{margin-bottom:4px}
+  .upd p{margin:0;font-size:13px;line-height:1.55}
+
+  footer{margin-top:8px;padding-top:14px;border-top:1px solid var(--hair);font-size:11.5px;color:var(--ink-3);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+
+  @media (max-width:1000px){
+    .frame{grid-template-columns:1fr;padding:18px 16px 48px}
+    nav.rail{position:static;display:flex;overflow-x:auto;gap:4px;border-bottom:1px solid var(--hair);padding-bottom:8px}
+    nav.rail a{border-left:0;border-bottom:2px solid transparent;white-space:nowrap}
+    nav.rail a.on{border-bottom-color:var(--accent)}
+    nav.rail .rail-foot{display:none}
+    .g2,.g-aging,.panels,.updates{grid-template-columns:1fr}
+    .tiles.six{grid-template-columns:1fr 1fr 1fr}
+    .tiles.six .tile:nth-child(6n){border-right:1px solid var(--hair)} .tiles.six .tile:nth-child(3n){border-right:0}
+    .mast-in{padding:18px 16px} .period{align-items:flex-start} .period .row{justify-content:flex-start}
+  }
+  @media print{ nav.rail{display:none} .frame{grid-template-columns:1fr} .card,.panel{break-inside:avoid} }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+<style>
+  /* Daily-only additions */
+  .mast h1 .kicker{display:block;font-size:11px;font-weight:700;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:2px}
+  .asat{font-size:12.5px;color:var(--band-muted)}
+  .asat b{color:var(--band-ink);font-weight:600}
+  .fc-table td:first-child{white-space:nowrap}
+  tr.trough td{background:var(--bad-bg)!important;font-weight:600}
+  tr.trough td:first-child::after{content:"LOW";margin-left:8px;font-size:9.5px;font-weight:700;
+    color:var(--bad-ink);border:1px solid var(--orange);padding:0 4px;vertical-align:1px}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <div class="eyebrow">Noon Academy · Treasury</div>
+      <h1>Cash Position</h1>
+      <div class="sub">Bank balance, daily movement and the thirteen-week outlook. Updated each
+        business day, independently of the monthly management pack.</div>
+      <div class="mast-right" style="margin-top:8px">All figures in
+        <b id="m-cur">USD millions</b> · refreshed <b id="m-gen"></b></div>
+      <div class="cur-wrap">
+        <label for="cur-usd">Currency</label>
+        <span class="quick" id="cur-toggle" role="group" aria-label="Display currency">
+          <button type="button" id="cur-usd" data-cur="USD" aria-pressed="true">USD</button>
+          <button type="button" data-cur="SAR" aria-pressed="false">SAR</button>
+        </span>
+        <span class="cur-rate" id="cur-rate"></span>
+      </div>
+    </div>
+    <div class="period">
+      <div class="asat">Position as at <b id="m-asat"></b></div>
+      <div class="asat" id="m-cover"></div>
+    </div>
+  </div>
+</header>
+
+<div class="frame">
+  <nav class="rail" aria-label="Sections">
+    <a href="#s0"><span class="n">—</span>Position today</a>
+    <a href="#s1"><span class="n">1</span>Daily movement</a>
+    <a href="#s2"><span class="n">2</span>13-week outlook</a>
+    <a href="#s3"><span class="n">3</span>Receivables</a>
+    <a href="#s4"><span class="n">4</span>Notes</a>
+    <div class="rail-foot">Actuals run to the as-at date. Everything from the next Monday on is
+      forecast and only as good as its last revision.</div>
+  </nav>
+
+  <main>
+    <section class="sec" id="s0">
+      <div class="sec-head"><span class="n">—</span><h2>Position today</h2>
+        <span class="scope" id="es-scope"></span></div>
+      <div class="panels">
+        <div class="panel wide">
+          <div class="panel-h"><span class="eyebrow">Cash &amp; liquidity</span>
+            <span class="when" id="p-when"></span></div>
+          <div class="tiles six" id="tiles"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="s1">
+      <div class="sec-head"><span class="n">1</span><h2>Daily movement</h2>
+        <span class="scope" id="led-scope"></span></div>
+      <div class="card">
+        <div class="card-h"><h3>Closing bank balance</h3><span class="sub" id="bal-scope"></span></div>
+        <div class="legend"><span><i class="line" style="background:var(--s1)"></i>Closing balance</span>
+          <span><i class="dash" style="color:var(--orange)"></i>Operating floor</span></div>
+        <div class="chart" id="ch-bal"></div>
+      </div>
+      <div class="grid g2" style="margin-top:16px">
+        <div class="card">
+          <div class="card-h"><h3>Receipts vs payments</h3><span class="sub" id="rp-scope"></span></div>
+          <div class="legend"><span><i style="background:var(--s1)"></i>Receipts</span>
+            <span><i style="background:var(--s3)"></i>Payments</span></div>
+          <div class="chart" id="ch-rp"></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3>Net movement by week</h3><span class="sub" id="nw-scope"></span></div>
+          <div class="legend"><span><i style="background:var(--s2)"></i>Net movement</span></div>
+          <div class="chart" id="ch-net"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="s2">
+      <div class="sec-head"><span class="n">2</span><h2>13-week outlook</h2>
+        <span class="scope" id="fc-scope"></span></div>
+      <div class="card">
+        <div class="card-h"><h3>Projected closing balance</h3><span class="sub" id="fcb-scope"></span></div>
+        <div class="legend"><span><i class="line" style="background:var(--s1)"></i>Projected balance</span>
+          <span><i class="dash" style="color:var(--orange)"></i>Operating floor</span></div>
+        <div class="chart" id="ch-fc"></div>
+        <div class="note" id="fc-note"></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3 class="tbl-title">Week by week</h3>
+        <div class="tbl-wrap"><table id="t-fc" class="fc-table"></table></div>
+        <div class="note">Receipts and payments are expected amounts. The lowest projected balance
+          is marked. Roll the workbook forward each Monday.</div>
+      </div>
+    </section>
+
+    <section class="sec" id="s3">
+      <div class="sec-head"><span class="n">3</span><h2>Receivables</h2>
+        <span class="scope" id="ar-scope"></span></div>
+      <div class="grid g-aging">
+        <div class="card">
+          <div class="card-h"><h3>Aging</h3><span class="sub" id="ag-scope"></span></div>
+          <div class="legend"><span><i style="background:var(--s1)"></i>Current</span>
+            <span><i style="background:var(--s2)"></i>31–60 days</span>
+            <span><i style="background:var(--s3)"></i>60+ days</span></div>
+          <div class="chart" id="ch-ag"></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3>By contract</h3><span class="sub" id="ct-scope"></span></div>
+          <div class="legend"><span><i style="background:var(--s1)"></i>Outstanding balance</span></div>
+          <div class="chart" id="ch-ct"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="s4">
+      <div class="sec-head"><span class="n">4</span><h2>Notes</h2>
+        <span class="scope">Written alongside the daily update</span></div>
+      <div class="updates" id="updates"></div>
+    </section>
+
+    <footer>
+      <span>Source: <span id="f-src"></span> · refreshed <span id="f-gen"></span></span>
+      <span>Noon Academy · internal management information</span>
+    </footer>
+  </main>
+</div>
+<div id="tip" role="status" aria-live="polite"></div>
+
+<script>
+const DATA = {"meta":{"asat":"11 Sep 2026","generated":"13 Sep 2026","source":"noon_cash_daily.xlsx","currency":"USD M","ledger_from":"01 Jul 2026","forecast_from":"14 Sep"},"kpi":{"balance":3.056,"burn_day":-0.0215,"runway_months":6.77,"net_wtd":0.06,"collections_mtd":0.997,"ar_total":6.85,"ar_over60_share":0.2993,"floor":0.75,"trough":2.656,"trough_week":"week of 05 Oct"},"ledger":{"labels":["01 Jul","02 Jul","03 Jul","06 Jul","07 Jul","08 Jul","09 Jul","10 Jul","13 Jul","14 Jul","15 Jul","16 Jul","17 Jul","20 Jul","21 Jul","22 Jul","23 Jul","24 Jul","27 Jul","28 Jul","29 Jul","30 Jul","31 Jul","03 Aug","04 Aug","05 Aug","06 Aug","07 Aug","10 Aug","11 Aug","12 Aug","13 Aug","14 Aug","17 Aug","18 Aug","19 Aug","20 Aug","21 Aug","24 Aug","25 Aug","26 Aug","27 Aug","28 Aug","31 Aug","01 Sep","02 Sep","03 Sep","04 Sep","07 Sep","08 Sep","09 Sep","10 Sep","11 Sep"],"sparse":["01 Jul","","","","","08 Jul","","","","","15 Jul","","","","","22 Jul","","","","","29 Jul","","","","","05 Aug","","","","","12 Aug","","","","","19 Aug","","","","","26 Aug","","","","","02 Sep","","","","","09 Sep","","11 Sep"],"receipts":[0.095,0.11,0.125,0.103,0.117,0.095,0.11,0.125,0.103,0.117,0.095,0.11,0.125,0.103,0.117,0.095,0.11,0.125,0.103,0.117,0.095,0.11,0.125,0.103,0.117,0.095,0.11,0.125,0.103,0.117,0.095,0.11,0.125,0.103,0.117,0.095,0.11,0.125,0.103,0.117,0.095,0.11,0.125,0.103,0.117,0.095,0.11,0.125,0.103,0.117,0.095,0.11,0.125],"payments":[0.088,0.113,0.105,0.096,0.088,0.113,0.105,0.096,0.088,0.113,0.105,0.096,0.088,0.113,0.105,0.096,0.088,0.113,0.105,0.096,0.088,0.113,0.725,0.096,0.088,0.113,0.105,0.096,0.088,0.113,0.105,0.096,0.088,0.113,0.105,0.096,0.088,0.113,0.105,0.096,0.088,0.113,0.105,0.716,0.088,0.113,0.105,0.096,0.088,0.113,0.105,0.096,0.088],"net":[0.007,-0.003,0.02,0.007,0.029,-0.018,0.005,0.029,0.015,0.004,-0.01,0.014,0.037,-0.01,0.012,-0.001,0.022,0.012,-0.002,0.021,0.007,-0.003,-0.6,0.007,0.029,-0.018,0.005,0.029,0.015,0.004,-0.01,0.014,0.037,-0.01,0.012,-0.001,0.022,0.012,-0.002,0.021,0.007,-0.003,0.02,-0.613,0.029,-0.018,0.005,0.029,0.015,0.004,-0.01,0.014,0.037],"balance":[3.787,3.784,3.804,3.811,3.84,3.822,3.827,3.856,3.871,3.875,3.865,3.879,3.916,3.906,3.918,3.917,3.939,3.951,3.949,3.97,3.977,3.974,3.374,3.381,3.41,3.392,3.397,3.426,3.441,3.445,3.435,3.449,3.486,3.476,3.488,3.487,3.509,3.521,3.519,3.54,3.547,3.544,3.564,2.951,2.98,2.962,2.967,2.996,3.011,3.015,3.005,3.019,3.056]},"weekly":{"recent":["20 Jul","27 Jul","03 Aug","10 Aug","17 Aug","24 Aug","31 Aug","07 Sep"],"receipts":[0.55,0.55,0.55,0.55,0.55,0.55,0.55,0.55],"payments":[0.515,1.127,0.498,0.49,0.515,0.507,1.118,0.49],"net":[0.035,-0.577,0.052,0.06,0.035,0.043,-0.568,0.06]},"forecast":[{"week":"14 Sep","collections":0.52,"other_receipts":0.02,"payroll":0.0,"suppliers":0.24,"tax":0.0,"debt":0.04,"other_payments":0.03,"net":0.23,"closing":3.286},{"week":"21 Sep","collections":0.55,"other_receipts":0.02,"payroll":0.0,"suppliers":0.26,"tax":0.09,"debt":0.04,"other_payments":0.04,"net":0.14,"closing":3.426},{"week":"28 Sep","collections":0.53,"other_receipts":0.02,"payroll":0.62,"suppliers":0.24,"tax":0.0,"debt":0.04,"other_payments":0.05,"net":-0.4,"closing":3.026},{"week":"05 Oct","collections":0.56,"other_receipts":0.02,"payroll":0.62,"suppliers":0.26,"tax":0.0,"debt":0.04,"other_payments":0.03,"net":-0.37,"closing":2.656},{"week":"12 Oct","collections":0.54,"other_receipts":0.02,"payroll":0.0,"suppliers":0.24,"tax":0.0,"debt":0.04,"other_payments":0.04,"net":0.24,"closing":2.896},{"week":"19 Oct","collections":0.52,"other_receipts":0.02,"payroll":0.0,"suppliers":0.26,"tax":0.09,"debt":0.04,"other_payments":0.05,"net":0.1,"closing":2.996},{"week":"26 Oct","collections":0.55,"other_receipts":0.02,"payroll":0.0,"suppliers":0.24,"tax":0.0,"debt":0.04,"other_payments":0.03,"net":0.26,"closing":3.256},{"week":"02 Nov","collections":0.53,"other_receipts":0.02,"payroll":0.62,"suppliers":0.26,"tax":0.0,"debt":0.04,"other_payments":0.04,"net":-0.41,"closing":2.846},{"week":"09 Nov","collections":0.56,"other_receipts":0.02,"payroll":0.0,"suppliers":0.24,"tax":0.0,"debt":0.04,"other_payments":0.05,"net":0.25,"closing":3.096},{"week":"16 Nov","collections":0.54,"other_receipts":0.02,"payroll":0.0,"suppliers":0.26,"tax":0.09,"debt":0.04,"other_payments":0.03,"net":0.14,"closing":3.236},{"week":"23 Nov","collections":0.52,"other_receipts":0.02,"payroll":0.0,"suppliers":0.24,"tax":0.0,"debt":0.04,"other_payments":0.04,"net":0.22,"closing":3.456},{"week":"30 Nov","collections":0.55,"other_receipts":0.02,"payroll":0.62,"suppliers":0.26,"tax":0.0,"debt":0.04,"other_payments":0.05,"net":-0.4,"closing":3.056},{"week":"07 Dec","collections":0.53,"other_receipts":0.02,"payroll":0.0,"suppliers":0.24,"tax":0.0,"debt":0.04,"other_payments":0.03,"net":0.24,"closing":3.296}],"ar_aging":[{"bucket":"Current — due next 30 days","amount":2.95,"share":0.4307},{"bucket":"31–60 days","amount":1.85,"share":0.2701},{"bucket":"60+ days / overdue","amount":2.05,"share":0.2993}],"ar_aging_total":6.85,"ar_by_contract":[{"contract":"MCIT","amount":2.2,"share":0.3212},{"contract":"Takaful","amount":1.45,"share":0.2117},{"contract":"Taalum","amount":1.15,"share":0.1679},{"contract":"Ensan","amount":0.85,"share":0.1241},{"contract":"Tracks","amount":0.65,"share":0.0949},{"contract":"Other contracts","amount":0.55,"share":0.0803}],"notes":[{"topic":"Position","text":"Cash stands at the level shown after a heavier-than-usual payment week covering quarterly tax and the September payroll run."},{"topic":"Collections","text":"MCIT milestone invoice remains the single largest open item. Collection would move the forecast trough out by roughly three weeks."},{"topic":"Forecast","text":"The thirteen-week view dips to its low point in week 8 on the back of the October payroll and the debt service instalment falling in the same week."},{"topic":"Watch","text":"Two contracts in the 60+ bucket account for most of the overdue balance and are the focus of collection effort this week."}]};
+
+/* ───────── helpers ───────── */
+const $ = (s, el=document) => el.querySelector(s);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fM  = (v, d=2) => v==null ? '—' : (v<0?'−':'') + SY() + Math.abs(v).toFixed(d) + 'M';
+const fMs = (v, d=2) => v==null ? '—' : (v<0?'−':'+') + SY() + Math.abs(v).toFixed(d) + 'M';
+const fP  = (v, d=1) => v==null ? '—' : (v*100).toFixed(d) + '%';
+const fPp = (v, d=1) => v==null ? '—' : (v<0?'−':'+') + Math.abs(v*100).toFixed(d) + ' pts';
+const f1  = v => v==null ? '—' : (v<0?'−':'') + Math.abs(v).toFixed(1);
+const f2  = v => v==null ? '—' : (v<0?'−':'') + Math.abs(v).toFixed(2);
+const f2s = v => v==null ? '—' : (v<0?'−':'+') + Math.abs(v).toFixed(2);
+const sum = a => a.reduce((s,v)=>s+(v||0),0);
+const SERIES = ['--s1','--s2','--s3','--s4','--s5'];
+const MONTH_FULL = {Jan:'January',Feb:'February',Mar:'March',Apr:'April',May:'May',Jun:'June',Jul:'July',Aug:'August',Sep:'September',Oct:'October',Nov:'November',Dec:'December'};
+const MONTHS_ALL = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const nice = (max, n=4) => { const raw=max/n, p=Math.pow(10,Math.floor(Math.log10(raw||1))), r=raw/p; const s=(r<=1?1:r<=2?2:r<=2.5?2.5:r<=5?5:10)*p; return {step:s, top:Math.ceil(max/s)*s}; };
+const shade = (i, n) => `rgba(${css('--shade-base')},${(1 - i*(0.66/Math.max(n-1,1))).toFixed(2)})`;
+/* label colour that always clears its fill */
+function inkOn(col){
+  const m=String(col).match(/#([0-9a-f]{6})/i);
+  if(!m) return css('--white');
+  const n=parseInt(m[1],16), L=(0.299*((n>>16)&255)+0.587*((n>>8)&255)+0.114*(n&255))/255;
+  return L>0.58 ? css('--dark-blue') : css('--white');
+}
+
+/* tooltip */
+const tip = $('#tip');
+function showTip(e, title, rows){
+  tip.replaceChildren();
+  if(title){ const t=document.createElement('div'); t.className='t'; t.textContent=title; tip.appendChild(t); }
+  for(const r of rows){ const d=document.createElement('div'); d.className='r';
+    const l=document.createElement('span'); if(r.color){ const i=document.createElement('i'); i.style.background=r.color; l.appendChild(i);} l.appendChild(document.createTextNode(r.label));
+    const b=document.createElement('b'); b.textContent=r.value; d.append(l,b); tip.appendChild(d); }
+  tip.style.opacity=1; moveTip(e);
+}
+function moveTip(e){ const w=tip.offsetWidth, h=tip.offsetHeight; let x=e.clientX+14, y=e.clientY+14; if(x+w>innerWidth-8) x=e.clientX-w-14; if(y+h>innerHeight-8) y=e.clientY-h-14; tip.style.left=x+'px'; tip.style.top=y+'px'; }
+function hideTip(){ tip.style.opacity=0; }
+function bind(el, title, rows){ el.addEventListener('pointerenter', e=>showTip(e,title,rows)); el.addEventListener('pointermove', moveTip); el.addEventListener('pointerleave', hideTip); el.setAttribute('tabindex','0'); el.addEventListener('focus', ()=>{const r=el.getBoundingClientRect(); showTip({clientX:r.left+r.width/2, clientY:r.top}, title, rows);}); el.addEventListener('blur', hideTip); }
+
+const svgEl = (tag, attrs={}) => { const el=document.createElementNS('http://www.w3.org/2000/svg', tag); for(const k in attrs) el.setAttribute(k, attrs[k]); return el; };
+const txt = (x,y,s,attrs={}) => { const t=svgEl('text',{x,y,...attrs}); t.textContent=s; return t; };
+const rect = (x,y,w,h,fill,extra={}) => svgEl('rect',{x,y,width:Math.max(w,0),height:Math.max(h,0),...(fill?{fill}:{}),...extra});
+function mount(id, svg){ $(id).replaceChildren(svg); }
+
+/* Fixed chart frames */
+const FR = {half:{W:560,H:250}, wide:{W:700,H:250}, narrow:{W:460,H:250}, aging:{W:580,H:250}, full:{W:1160,H:250}};
+
+/* ───────── horizontal actual bars + budget marker ───────── */
+function bulletChart(id, rows, get, opts={}){
+  const {W,H}=FR.half, padL=150, padR=76, padT=6, padB=22;
+  const rowH=(H-padT-padB)/rows.length, bh=Math.min(18,rowH*0.55);
+  const vals=rows.map(get); const max=Math.max(...vals.flatMap(v=>[v.actual||0,v.budget||0]),0.01);
+  const {step,top}=nice(max*1.02,4); const sx=v=>padL+(v/top)*(W-padL-padR);
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`}); const g=svgEl('g',{class:'grid'});
+  for(let v=0; v<=top+1e-9; v+=step){ g.appendChild(svgEl('line',{x1:sx(v),x2:sx(v),y1:padT,y2:H-padB})); svg.appendChild(txt(sx(v),H-6,SY()+(+v.toFixed(2))+'M',{'text-anchor':'middle',class:'axis'})); }
+  svg.appendChild(g);
+  const markCol=css(opts.marker||'--s2');
+  rows.forEach((r,i)=>{
+    const v=vals[i], y=padT+i*rowH+(rowH-bh)/2, a=v.actual||0, b=v.budget||0;
+    const col=opts.shades?shade(i,rows.length):css(opts.color||'--s1');
+    svg.appendChild(txt(padL-10,y+bh/2+4,r.name,{'text-anchor':'end',class:'cat'}));
+    svg.appendChild(rect(sx(0),y,sx(a)-sx(0),bh,col,{class:'mark'}));
+    svg.appendChild(rect(sx(b)-1.5,y-4,3,bh+8,markCol));
+    svg.appendChild(txt(sx(Math.max(a,b))+8,y+bh/2+4,fM(a),{class:'lbl'}));
+    const hit=rect(padL,padT+i*rowH,W-padL,rowH,null,{class:'hit'}); svg.appendChild(hit);
+    bind(hit, r.name, [{label:'Actual',value:fM(a),color:col},{label:'Budget',value:fM(b),color:markCol},{label:'Variance',value:fMs(v.var)+' · '+fP(v.pct)+' of budget'}]);
+  });
+  svg.appendChild(svgEl('line',{x1:sx(0),x2:sx(0),y1:padT,y2:H-padB,class:'base'}));
+  mount(id,svg);
+}
+
+/* ───────── 100% stacked rows ───────── */
+function stackChart(id, rows, catNames){
+  const {W,H}=FR.full, padL=170, padR=16, padT=24, padB=14; const rowH=(H-padT-padB)/rows.length, bh=Math.min(34,rowH*0.55);
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`}); const inner=W-padL-padR, gap=2;
+  rows.forEach((row,ri)=>{
+    const y=padT+ri*rowH+(rowH-bh)/2; svg.appendChild(txt(padL-14,y+bh/2+4,row.label,{'text-anchor':'end',class:'cat'}));
+    let x=padL; const tot=sum(row.parts.map(p=>p.rev))||1;
+    row.parts.forEach((p,pi)=>{
+      const share=p.rev/tot; const w=Math.max(0,inner*share-(pi<row.parts.length-1?gap:0));
+      const col=css(SERIES[pi%5]); const seg=rect(x,y,w,bh,col,{class:'mark'}); svg.appendChild(seg);
+      const label=fP(share,0);
+      if(w>=46) svg.appendChild(txt(x+w/2,y+bh/2+4,label,{'text-anchor':'middle',style:`fill:${inkOn(col)};font-weight:600`}));
+      else { svg.appendChild(svgEl('line',{x1:x+w/2,x2:x+w/2,y1:y-3,y2:y-10,stroke:css('--gray-mid'),'stroke-width':1})); svg.appendChild(txt(x+w/2,y-13,label,{'text-anchor':'middle',class:'lbl',style:'font-size:10.5px'})); }
+      bind(seg,row.label,[{label:catNames[pi],value:fM(p.rev)+' · '+fP(share),color:col}]);
+      x+=w+gap;
+    });
+  });
+  mount(id,svg);
+}
+
+/* ───────── line with crosshair, optional forecast split ───────── */
+function lineChart(id, labels, series, opts={}){
+  const F=FR[opts.frame||'half'], W=F.W, H=F.H, padL=48, padR=18, padT=18, padB=26;
+  const all=series.flatMap(s=>s.values.filter(v=>v!=null)); if(!all.length){ mount(id,svgEl('svg',{viewBox:`0 0 ${W} ${H}`})); return; }
+  let lo=Math.min(...all), hi=Math.max(...all); if(opts.minZero!==false) lo=Math.min(0,lo);
+  if(opts.floor!=null){ lo=Math.min(lo,opts.floor); hi=Math.max(hi,opts.floor); }
+  const span=(hi-lo)||Math.abs(hi)||1; const {step}=nice(span*1.25,4);
+  const y0=Math.floor(lo/step)*step; let y1=Math.ceil(hi/step)*step; if(y1-hi<step*0.25) y1+=step;
+  const n=labels.length;
+  const sx=i=>n>1?padL+(i/(n-1))*(W-padL-padR):(padL+W-padR)/2;
+  const sy=v=>padT+(1-(v-y0)/(y1-y0))*(H-padT-padB);
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`});
+  const fcFrom=opts.forecastFrom;
+  if(fcFrom!=null && fcFrom>0 && fcFrom<n){
+    const xs=(sx(fcFrom-1)+sx(fcFrom))/2;
+    svg.appendChild(rect(xs,padT,W-padR-xs,H-padT-padB,null,{class:'fc-band'}));
+    svg.appendChild(svgEl('line',{x1:xs,x2:xs,y1:padT-8,y2:H-padB,class:'fc-line'}));
+    svg.appendChild(txt(xs+6,padT-1,'FORECAST →',{class:'fc-lbl'}));
+    svg.appendChild(txt(xs-6,padT-1,'← ACTUAL',{class:'act-lbl','text-anchor':'end'}));
+  }
+  const g=svgEl('g',{class:'grid'});
+  for(let v=y0; v<=y1+1e-9; v+=step){ g.appendChild(svgEl('line',{x1:padL,x2:W-padR,y1:sy(v),y2:sy(v)})); svg.appendChild(txt(padL-8,sy(v)+4,(opts.yFmt||f1)(v),{'text-anchor':'end',class:'axis'})); }
+  svg.appendChild(g);
+  if(opts.floor!=null) svg.appendChild(svgEl('line',{x1:padL,x2:W-padR,y1:sy(opts.floor),
+    y2:sy(opts.floor),stroke:css('--orange'),'stroke-width':1.5,'stroke-dasharray':'5 4'}));
+  labels.forEach((l,i)=>svg.appendChild(txt(sx(i),H-6,l,{'text-anchor':'middle',class:'axis'})));
+  series.forEach(s=>{
+    const col=css(s.color); const pts=s.values.map((v,i)=>v==null?null:[sx(i),sy(v)]);
+    const cut = fcFrom!=null ? fcFrom : n;
+    const seg=(a,b)=>pts.slice(a,b).filter(Boolean).map((p,i)=>(i?'L':'M')+p[0]+','+p[1]).join(' ');
+    if(s.area){ const fp=pts.slice(0,cut).filter(Boolean); if(fp.length>1) svg.appendChild(svgEl('path',{d:`M${fp[0][0]},${sy(y0)} `+fp.map(p=>`L${p[0]},${p[1]}`).join(' ')+` L${fp[fp.length-1][0]},${sy(y0)} Z`,fill:col,opacity:.1})); }
+    svg.appendChild(svgEl('path',{d:seg(0,cut),fill:'none',stroke:col,'stroke-width':2,'stroke-linejoin':'round','stroke-linecap':'round'}));
+    if(cut<n) svg.appendChild(svgEl('path',{d:seg(cut-1,n),fill:'none',stroke:col,'stroke-width':2,'stroke-dasharray':'3 6','stroke-linecap':'round'}));
+    pts.forEach((p,i)=>{ if(!p) return; const hollow=(s.hollow&&s.hollow[i])||(fcFrom!=null&&i>=fcFrom); const dim=opts.dim&&opts.dim[i];
+      svg.appendChild(svgEl('circle',{cx:p[0],cy:p[1],r:4.5,fill:hollow?css('--surface'):col,stroke:hollow?col:css('--surface'),'stroke-width':2,opacity:dim?.35:1})); });
+    const last=pts[cut-1]; if(last) svg.appendChild(txt(last[0],last[1]-11,(opts.yFmt||f1)(s.values[cut-1]),{'text-anchor':'middle',class:'lbl'}));
+    if(cut<n){ const le=pts[n-1]; if(le) svg.appendChild(txt(le[0],le[1]-11,(opts.yFmt||f1)(s.values[n-1]),{'text-anchor':'middle',class:'lbl',style:'fill:var(--ink-2)'})); }
+  });
+  const xh=svgEl('line',{y1:padT,y2:H-padB,class:'xh'}); svg.appendChild(xh);
+  const hit=rect(padL,padT,W-padL-padR,H-padT-padB,null,{class:'hit'}); svg.appendChild(hit);
+  hit.addEventListener('pointermove',e=>{ const r=svg.getBoundingClientRect(); const px=(e.clientX-r.left)/r.width*W; const i=n>1?Math.max(0,Math.min(n-1,Math.round((px-padL)/((W-padL-padR)/(n-1))))):0;
+    xh.setAttribute('x1',sx(i)); xh.setAttribute('x2',sx(i)); xh.style.opacity=1;
+    showTip(e,labels[i]+(fcFrom!=null&&i>=fcFrom?' · forecast':''),series.map(s=>({label:s.name+(s.hollow&&s.hollow[i]?' (illustrative)':''),value:(opts.yFmt||f1)(s.values[i]),color:css(s.color)}))); });
+  hit.addEventListener('pointerleave',()=>{ xh.style.opacity=0; hideTip(); });
+  mount(id,svg);
+}
+
+/* ───────── grouped columns ───────── */
+function columnChart(id, labels, series, opts={}){
+  const {W,H}=FR.half, padL=44, padR=10, padT=16, padB=26;
+  const allv=series.flatMap(s=>s.values.filter(v=>v!=null));
+  const max=Math.max(...allv,0.01), lo=Math.min(...allv,0);
+  /* Values can be negative (a net-outflow week); the baseline sits at zero and
+     those bars hang below it rather than being flipped positive. One step is
+     taken across the whole range — deriving it from the positive part alone
+     leaves the negative half stepping far too finely to read. */
+  const {step}=nice((max-Math.min(lo,0))*1.1,4);
+  const top = Math.max(Math.ceil(max/step)*step, step);
+  const bot = lo<0 ? Math.floor(lo/step)*step : 0;
+  const sy=v=>padT+(1-(v-bot)/((top-bot)||1))*(H-padT-padB); const slot=(W-padL-padR)/labels.length; const bw=Math.min(18,(slot-12)/series.length); const gap=2;
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`}); const g=svgEl('g',{class:'grid'});
+  for(let v=bot; v<=top+1e-9; v+=step){ g.appendChild(svgEl('line',{x1:padL,x2:W-padR,y1:sy(v),y2:sy(v)})); svg.appendChild(txt(padL-8,sy(v)+4,f1(v),{'text-anchor':'end',class:'axis'})); }
+  svg.appendChild(g);
+  labels.forEach((l,i)=>{
+    const cx=padL+slot*i+slot/2; svg.appendChild(txt(cx,H-6,l,{'text-anchor':'middle',class:'axis'}));
+    const gw=series.length*bw+(series.length-1)*gap; let x=cx-gw/2; const dim=opts.dim&&opts.dim[i];
+    series.forEach(s=>{ const v=s.values[i]||0; const y0=sy(0), yv=sy(v);
+      svg.appendChild(rect(x,Math.min(y0,yv),bw,Math.abs(y0-yv),css(s.color),{class:'mark',opacity:dim?.28:1})); x+=bw+gap; });
+    const hit=rect(padL+slot*i,padT,slot,H-padT-padB,null,{class:'hit'}); svg.appendChild(hit);
+    bind(hit,l,series.map(s=>({label:s.name,value:(opts.fmt||fM)(s.values[i]),color:css(s.color)})));
+  });
+  svg.appendChild(svgEl('line',{x1:padL,x2:W-padR,y1:sy(0),y2:sy(0),class:'base'}));
+  mount(id,svg);
+}
+
+/* ───────── waterfall (full width) ───────── */
+function waterfall(id, steps){
+  const {W,H}=FR.full, padL=48, padR=12, padT=22, padB=30;
+  let run=0; const bars=steps.map(s=>{ if(s.kind==='total'){ run=s.value; return {...s,lo:0,hi:s.value}; } const lo=Math.min(run,run+s.value), hi=Math.max(run,run+s.value); run+=s.value; return {...s,lo,hi}; });
+  const max=Math.max(...bars.map(b=>b.hi)); const {step,top}=nice(max*1.08,4);
+  const sy=v=>padT+(1-v/top)*(H-padT-padB); const slot=(W-padL-padR)/steps.length; const bw=Math.min(40,slot-40);
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`}); const g=svgEl('g',{class:'grid'});
+  for(let v=0; v<=top+1e-9; v+=step){ g.appendChild(svgEl('line',{x1:padL,x2:W-padR,y1:sy(v),y2:sy(v)})); svg.appendChild(txt(padL-8,sy(v)+4,f1(v),{'text-anchor':'end',class:'axis'})); }
+  svg.appendChild(g);
+  bars.forEach((b,i)=>{
+    const cx=padL+slot*i+slot/2, x=cx-bw/2;
+    const col=b.kind==='total'?css('--c-total'):(b.value>=0?css('--c-in'):css('--c-out'));
+    svg.appendChild(rect(x,sy(b.hi),bw,Math.max(sy(b.lo)-sy(b.hi),1.5),col,{class:'mark'}));
+    if(i<bars.length-1){ const yy=sy(b.kind==='total'?b.value:(b.value>=0?b.hi:b.lo)); svg.appendChild(svgEl('line',{x1:x+bw,x2:cx+slot-bw/2,y1:yy,y2:yy,stroke:css('--gray-mid'),'stroke-width':1})); }
+    svg.appendChild(txt(cx,H-10,b.step.replace(/ — .*$/,''),{'text-anchor':'middle',class:'axis'}));
+    svg.appendChild(txt(cx,sy(b.hi)-6,b.kind==='total'?fM(b.value):fMs(b.value),{'text-anchor':'middle',class:'lbl'}));
+    const hit=rect(padL+slot*i,padT,slot,H-padT-padB,null,{class:'hit'}); svg.appendChild(hit);
+    bind(hit,b.step,[{label:b.kind==='total'?'Balance':'Flow',value:b.kind==='total'?fM(b.value):fMs(b.value),color:col},...(b.kind==='delta'?[{label:'Running balance',value:fM(b.running)}]:[])]);
+  });
+  svg.appendChild(svgEl('line',{x1:padL,x2:W-padR,y1:sy(0),y2:sy(0),class:'base'}));
+  mount(id,svg);
+}
+
+/* ───────── horizontal bars (aging / contracts / vendors) ───────── */
+function hbarChart(id, items, opts={}){
+  const F=FR[opts.frame||'half'], W=F.W, H=F.H, padL=opts.padL||170, padR=120, padT=6, padB=6;
+  const rowH=(H-padT-padB)/items.length, bh=Math.min(22,rowH*0.55);
+  const max=Math.max(...items.map(b=>b.amount),0.01); const sx=v=>padL+(v/max)*(W-padL-padR);
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`});
+  /* Category labels are right-anchored at padL, so anything wider than the
+     gutter runs off the left of the viewBox. Trim to what fits; the tooltip
+     still carries the full name. */
+  const maxChars=Math.max(8,Math.floor((padL-14)/5.9));
+  const clip=s=>{ s=String(s); return s.length>maxChars ? s.slice(0,maxChars-1).trimEnd()+'…' : s; };
+  items.forEach((b,i)=>{ const y=padT+i*rowH+(rowH-bh)/2; const col=css(opts.colors?opts.colors[i]:(opts.color||'--s1'));
+    const lab=txt(padL-12,y+bh/2+4,clip(b.label),{'text-anchor':'end',class:'cat'});
+    if(clip(b.label)!==String(b.label)){ const t=svgEl('title'); t.textContent=b.label; lab.appendChild(t); }
+    svg.appendChild(lab);
+    const bar=rect(padL,y,sx(b.amount)-padL,bh,col,{class:'mark'}); svg.appendChild(bar);
+    svg.appendChild(txt(sx(b.amount)+8,y+bh/2+4,fM(b.amount)+(b.share!=null?'  ·  '+fP(b.share,0):''),{class:'lbl'}));
+    bind(bar,b.label,[{label:'Amount',value:fM(b.amount),color:col},...(b.share!=null?[{label:'Share of total',value:fP(b.share)}]:[]),...(opts.total!=null?[{label:'Total',value:fM(opts.total)}]:[])]); });
+  svg.appendChild(svgEl('line',{x1:padL,x2:padL,y1:padT,y2:H-padB,class:'base'}));
+  mount(id,svg);
+}
+
+/* ───────── tables ───────── */
+function avbTable(id, rows, pLabel, yLabel){
+  const head=`<thead><tr><th rowspan="2">Line</th><th class="grp" colspan="4">${esc(pLabel)}</th><th class="grp" colspan="4">Year-to-date · ${esc(yLabel)}</th></tr>
+  <tr><th>Actual</th><th>Budget</th><th>Var</th><th>% Bdgt</th><th>Actual</th><th>Budget</th><th>Var</th><th>% Bdgt</th></tr></thead>`;
+  const body=rows.map(r=>{
+    const isPct=r.kind==='pct'; const vc=v=>v==null||Math.abs(v)<1e-9?'':((r.cost?v<0:v>0)?'pos':'neg');
+    const cells=b=> isPct
+      ? `<td>${fP(b.actual)}</td><td>${fP(b.budget)}</td><td class="${vc(b.actual-b.budget)}">${fPp(b.actual-b.budget)}</td><td class="dim">—</td>`
+      : `<td>${f2(b.actual)}</td><td>${f2(b.budget)}</td><td class="${vc(b.var)}">${f2s(b.var)}</td><td>${fP(b.pct)}</td>`;
+    return `<tr class="${r.total?'total':''}${isPct?' pct':''}"><td>${r.sw?`<span class="sw" style="background:${r.sw}"></span>`:''}${esc(r.name)}</td>${cells(r.period)}${cells(r.ytd)}</tr>`;
+  }).join('');
+  $(id).innerHTML=head+'<tbody>'+body+'</tbody>';
+}
+function simpleTable(id, cols, rows){
+  const head='<thead><tr>'+cols.map(c=>`<th>${esc(c)}</th>`).join('')+'</tr></thead>';
+  const body=rows.map(r=>`<tr class="${r.cls||''}">`+r.cells.map((c,i)=>`<td class="${(r.cellCls&&r.cellCls[i])||''}">${c}</td>`).join('')+'</tr>').join('');
+  $(id).innerHTML=head+'<tbody>'+body+'</tbody>';
+}
+
+/* ───────── tiles: label · value · sub · one chip ───────── */
+const tile=(label,value,sub,chipHtml,challenge=false)=>
+  `<div class="tile${challenge?' challenge':''}"><div class="rule"></div><div class="label">${esc(label)}</div><div class="val">${value}</div><div class="sub">${sub||''}</div>${chipHtml||'<span class="chip flat">—</span>'}</div>`;
+const chip=(cls,text)=>`<span class="chip ${cls}">${text}</span>`;
+function varChip(v,pct,upIsGood=true){ if(v==null) return ''; const good=Math.abs(v)<1e-9?null:(upIsGood?v>0:v<0); return chip(good==null?'flat':good?'good':'bad', `${good==null?'●':v>0?'▲':'▼'} ${fP(pct)} of budget`); }
+function marginChip(a,b){ if(a==null||b==null) return ''; const d=a-b; return chip(Math.abs(d)<0.0005?'flat':d>0?'good':'bad', `${d>0?'▲':d<0?'▼':'●'} ${fPp(d)} vs budget`); }
+
+/* ═════════ currency ═════════
+   Kept identical to the monthly page: the workbook is USD, and the dataset is
+   converted once per toggle so chart scales land on round numbers either way.
+   Ratios and day counts are not currency and are never scaled. */
+const FX={USD:{rate:1,sym:'$',unit:'USD'}, SAR:{rate:3.75,sym:'SAR ',unit:'SAR'}};
+let CUR='USD';
+const SY=()=>FX[CUR].sym, UNIT=()=>FX[CUR].unit+' M';
+const D0=DATA, M=D0.meta;
+let D=D0;
+
+function convertFX(src,k,sym){
+  if(k===1) return src;
+  const d=structuredClone(src);
+  const arr=a=>Array.isArray(a)?a.map(v=>typeof v==='number'?v*k:v):a;
+  const mul=(o,ks)=>{ if(o) ks.forEach(f=>{ if(typeof o[f]==='number') o[f]*=k; }); };
+  const prose=s=>String(s).replace(/\$\s?(\d+(?:\.\d+)?)\s?M/g,(_,n)=>sym+(parseFloat(n)*k).toFixed(2)+'M');
+  d.ledger.receipts=arr(d.ledger.receipts); d.ledger.payments=arr(d.ledger.payments);
+  d.ledger.net=arr(d.ledger.net); d.ledger.balance=arr(d.ledger.balance);
+  d.weekly.net=arr(d.weekly.net);
+  d.forecast.forEach(w=>{ mul(w,['collections','other_receipts','payroll','suppliers','tax',
+                                 'debt','other_payments','net','closing']); });
+  d.ar_aging.forEach(b=>mul(b,['amount'])); d.ar_aging_total*=k;
+  d.ar_by_contract.forEach(c=>mul(c,['amount']));
+  mul(d.kpi,['balance','burn_day','net_wtd','collections_mtd','ar_total','floor','trough']);
+  d.notes.forEach(n=>n.text=prose(n.text));
+  return d;
+}
+
+(function buildCurrency(){
+  const box=$('#cur-toggle');
+  box.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    CUR=b.dataset.cur;
+    D=convertFX(D0,FX[CUR].rate,FX[CUR].sym);
+    box.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.cur===CUR));
+    render();
+  }));
+})();
+
+/* ═════════ render ═════════ */
+function render(){
+  const K=D.kpi, L=D.ledger, W=D.weekly, F=D.forecast;
+  $('#m-gen').textContent=M.generated; $('#f-gen').textContent=M.generated;
+  $('#f-src').textContent=M.source;    $('#m-asat').textContent=M.asat;
+  $('#m-cur').textContent=`${FX[CUR].unit} millions`;
+  $('#cur-rate').textContent = CUR==='USD' ? '' : `converted at 1 USD = ${FX.SAR.rate} SAR`;
+  $('#m-cover').textContent=`Ledger from ${M.ledger_from} · ${L.labels.length} business days`;
+  $('#es-scope').textContent=`as at ${M.asat}`;
+  $('#p-when').textContent=M.asat;
+
+  const runwayTxt = K.runway_months==null ? '—' : K.runway_months.toFixed(1);
+  const burnPos = K.burn_day>=0;
+  $('#tiles').innerHTML =
+    tile('Cash balance', fM(K.balance,3), `as at ${M.asat}`,
+         chip(K.net_wtd>=0?'good':'bad', `${K.net_wtd>=0?'▲':'▼'} ${fMs(K.net_wtd,3)} this week`), K.net_wtd<0) +
+    tile('Runway', `${runwayTxt}<small>mo</small>`, `at ${fM(Math.abs(K.burn_day),3)} a day`,
+         chip(K.runway_months!=null&&K.runway_months<12?'bad':'good',
+              K.runway_months==null?'● cash is building':`${K.runway_months<12?'▼ under':'▲ over'} 12 months`),
+         K.runway_months!=null&&K.runway_months<12) +
+    tile('Daily burn', fMs(K.burn_day,3), `20-day average`,
+         chip(burnPos?'good':'bad', burnPos?'▲ net inflow':'▼ net outflow'), !burnPos) +
+    tile('Collections', fM(K.collections_mtd,3), `month to date`,
+         chip('flat', `${L.labels.length} days in ledger`)) +
+    tile('AR outstanding', fM(K.ar_total,3), `${fP(K.ar_over60_share,0)} over 60 days`,
+         chip(K.ar_over60_share>0.25?'bad':'flat',
+              K.ar_over60_share>0.25?'▼ concentration in 60+':'● within tolerance'),
+         K.ar_over60_share>0.25) +
+    tile('Forecast low', fM(K.trough,3), K.trough_week||'—',
+         chip(K.trough<=K.floor?'bad':'good',
+              K.trough<=K.floor?'▼ breaches floor':'▲ clears floor'), K.trough<=K.floor);
+
+  /* 1 · daily movement */
+  $('#led-scope').textContent=`${UNIT()} · ${L.labels.length} business days`;
+  $('#bal-scope').textContent=`${UNIT()} · closing · floor ${fM(K.floor,2)}`;
+  lineChart('#ch-bal', L.sparse, [{name:'Closing balance', values:L.balance, color:'--s1', area:true}],
+            {yFmt:v=>SY()+f2(v)+'M', minZero:false, frame:'full', floor:K.floor});
+  $('#rp-scope').textContent=`${UNIT()} · last ${W.recent.length} weeks`;
+  columnChart('#ch-rp', W.recent, [
+    {name:'Receipts', values:W.receipts, color:'--s1'},
+    {name:'Payments', values:W.payments, color:'--s3'}], {fmt:v=>fM(v,2)});
+  $('#nw-scope').textContent=`${UNIT()} · weekly net`;
+  columnChart('#ch-net', W.recent, [{name:'Net movement', values:W.net,
+              color:'--s2'}], {fmt:v=>fM(v,2)});
+
+  /* 2 · forecast */
+  $('#fc-scope').textContent=`${F.length} weeks from ${M.forecast_from}`;
+  $('#fcb-scope').textContent=`${UNIT()} · projected closing`;
+  lineChart('#ch-fc', F.map(w=>w.week), [{name:'Projected balance',
+            values:F.map(w=>w.closing), color:'--s1', area:true}],
+            {yFmt:v=>SY()+f2(v)+'M', minZero:false, frame:'full', floor:K.floor});
+  $('#fc-note').textContent = K.trough<=K.floor
+    ? `The projection dips to ${fM(K.trough,3)} in ${K.trough_week}, below the ${fM(K.floor,2)} operating floor. Collections timing is the main lever.`
+    : `The projection holds above the ${fM(K.floor,2)} operating floor throughout, with its low point of ${fM(K.trough,3)} in ${K.trough_week}.`;
+
+  simpleTable('#t-fc', ['Week','Collections','Other','Payroll','Suppliers','Tax','Debt','Other pmts','Net','Closing'],
+    F.map(w=>({cls: w.closing===K.trough?'trough':'',
+      cells:[esc(w.week), f2(w.collections), f2(w.other_receipts), f2(w.payroll),
+             f2(w.suppliers), f2(w.tax), f2(w.debt), f2(w.other_payments),
+             f2s(w.net), f2(w.closing)],
+      cellCls:['','','','','','','','', w.net<0?'neg':'pos','']})));
+
+  /* 3 · receivables */
+  $('#ar-scope').textContent=`as at ${M.asat} · total ${fM(D.ar_aging_total,2)}`;
+  $('#ag-scope').textContent=`total ${fM(D.ar_aging_total,2)}`;
+  hbarChart('#ch-ag', D.ar_aging.map(b=>({label:b.bucket.replace(' — ',' · '),
+            amount:b.amount, share:b.share})),
+            {frame:'aging', padL:200, colors:['--s1','--s2','--s3'], total:D.ar_aging_total});
+  const ctTot=sum(D.ar_by_contract.map(c=>c.amount));
+  $('#ct-scope').textContent=`total ${fM(ctTot,2)}`;
+  hbarChart('#ch-ct', D.ar_by_contract.map(c=>({label:c.contract, amount:c.amount,
+            share:c.amount/ctTot})), {frame:'aging', padL:200, total:ctTot});
+
+  /* 4 · notes */
+  $('#updates').innerHTML=D.notes.map(n=>
+    `<div class="upd"><div class="eyebrow">${esc(n.topic)}</div><p>${esc(n.text)}</p></div>`).join('');
+}
+render();
+
+(function(){ const links=[...document.querySelectorAll('nav.rail a')],
+    secs=[...document.querySelectorAll('section.sec')];
+  const io=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting)
+    links.forEach(l=>l.classList.toggle('on', l.getAttribute('href')==='#'+e.target.id)); }),
+    {rootMargin:'-20% 0px -70% 0px'});
+  secs.forEach(s=>io.observe(s)); })();
+</script>
