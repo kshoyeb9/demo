@@ -47,7 +47,12 @@ PAGE = f"""<title>Noon Cash Position</title>
     text-transform:uppercase;color:var(--accent);margin-bottom:2px}}
   .asat{{font-size:12.5px;color:var(--band-muted)}}
   .asat b{{color:var(--band-ink);font-weight:600}}
-  .fc-table td:first-child{{white-space:nowrap}}
+  /* Eleven columns: tighten this table so Net and Closing stay on screen
+     rather than being the two that scroll off. */
+  .fc-table{{font-size:11.5px}}
+  .fc-table th,.fc-table td{{padding:6px 6px}}
+  .fc-table td:first-child,.fc-table th:first-child{{white-space:nowrap;padding-left:10px}}
+  .fc-table th:last-child,.fc-table td:last-child{{padding-right:10px}}
   tr.trough td{{background:var(--bad-bg)!important;font-weight:600}}
   tr.trough td:first-child::after{{content:"LOW";margin-left:8px;font-size:9.5px;font-weight:700;
     color:var(--bad-ink);border:1px solid var(--orange);padding:0 4px;vertical-align:1px}}
@@ -83,7 +88,7 @@ PAGE = f"""<title>Noon Cash Position</title>
     <a href="#s0"><span class="n">—</span>Position today</a>
     <a href="#s1"><span class="n">1</span>Daily movement</a>
     <a href="#s2"><span class="n">2</span>13-week outlook</a>
-    <a href="#s3"><span class="n">3</span>Receivables</a>
+    <a href="#s3"><span class="n">3</span>Forecast composition</a>
     <a href="#s4"><span class="n">4</span>Notes</a>
     <div class="rail-foot">Actuals run to the as-at date. Everything from the next Monday on is
       forecast and only as good as its last revision.</div>
@@ -145,20 +150,18 @@ PAGE = f"""<title>Noon Cash Position</title>
     </section>
 
     <section class="sec" id="s3">
-      <div class="sec-head"><span class="n">3</span><h2>Receivables</h2>
-        <span class="scope" id="ar-scope"></span></div>
+      <div class="sec-head"><span class="n">3</span><h2>Forecast composition</h2>
+        <span class="scope" id="comp-scope"></span></div>
       <div class="grid g-aging">
         <div class="card">
-          <div class="card-h"><h3>Aging</h3><span class="sub" id="ag-scope"></span></div>
-          <div class="legend"><span><i style="background:var(--s1)"></i>Current</span>
-            <span><i style="background:var(--s2)"></i>31–60 days</span>
-            <span><i style="background:var(--s3)"></i>60+ days</span></div>
-          <div class="chart" id="ch-ag"></div>
+          <div class="card-h"><h3>Expected inflows by source</h3><span class="sub" id="in-scope"></span></div>
+          <div class="legend"><span><i style="background:var(--s1)"></i>Expected receipt</span></div>
+          <div class="chart" id="ch-in"></div>
         </div>
         <div class="card">
-          <div class="card-h"><h3>By contract</h3><span class="sub" id="ct-scope"></span></div>
-          <div class="legend"><span><i style="background:var(--s1)"></i>Outstanding balance</span></div>
-          <div class="chart" id="ch-ct"></div>
+          <div class="card-h"><h3>Expected outflows by category</h3><span class="sub" id="out-scope"></span></div>
+          <div class="legend"><span><i style="background:var(--s3)"></i>Expected payment</span></div>
+          <div class="chart" id="ch-out"></div>
         </div>
       </div>
     </section>
@@ -200,12 +203,14 @@ function convertFX(src,k,sym){{
   const prose=s=>String(s).replace(/\\$\\s?(\\d+(?:\\.\\d+)?)\\s?M/g,(_,n)=>sym+(parseFloat(n)*k).toFixed(2)+'M');
   d.ledger.receipts=arr(d.ledger.receipts); d.ledger.payments=arr(d.ledger.payments);
   d.ledger.net=arr(d.ledger.net); d.ledger.balance=arr(d.ledger.balance);
+  d.weekly.receipts=arr(d.weekly.receipts); d.weekly.payments=arr(d.weekly.payments);
   d.weekly.net=arr(d.weekly.net);
-  d.forecast.forEach(w=>{{ mul(w,['collections','other_receipts','payroll','suppliers','tax',
-                                 'debt','other_payments','net','closing']); }});
-  d.ar_aging.forEach(b=>mul(b,['amount'])); d.ar_aging_total*=k;
-  d.ar_by_contract.forEach(c=>mul(c,['amount']));
-  mul(d.kpi,['balance','burn_day','net_wtd','collections_mtd','ar_total','floor','trough']);
+  d.forecast.forEach(w=>{{ mul(w,['net','closing']);
+    Object.keys(w.vals).forEach(c=>{{ w.vals[c]*=k; }}); }});
+  d.inflow_sources.forEach(x=>mul(x,['amount']));
+  d.outflow_cats.forEach(x=>mul(x,['amount']));
+  mul(d.kpi,['balance','burn_day','net_wtd','receipts_mtd','floor','trough',
+             'forecast_in','forecast_out']);
   d.notes.forEach(n=>n.text=prose(n.text));
   return d;
 }}
@@ -227,33 +232,34 @@ function render(){{
   $('#f-src').textContent=M.source;    $('#m-asat').textContent=M.asat;
   $('#m-cur').textContent=`${{FX[CUR].unit}} millions`;
   $('#cur-rate').textContent = CUR==='USD' ? '' : `converted at 1 USD = ${{FX.SAR.rate}} SAR`;
-  $('#m-cover').textContent=`Ledger from ${{M.ledger_from}} · ${{L.labels.length}} business days`;
+  $('#m-cover').textContent=`Actuals to ${{M.asat}} · forecast from ${{M.forecast_from}}`;
   $('#es-scope').textContent=`as at ${{M.asat}}`;
   $('#p-when').textContent=M.asat;
 
-  const runwayTxt = K.runway_months==null ? '—' : K.runway_months.toFixed(1);
-  const burnPos = K.burn_day>=0;
+  const inflow = K.burn_day>=0;
   $('#tiles').innerHTML =
-    tile('Cash balance', fM(K.balance,3), `as at ${{M.asat}}`,
-         chip(K.net_wtd>=0?'good':'bad', `${{K.net_wtd>=0?'▲':'▼'}} ${{fMs(K.net_wtd,3)}} this week`), K.net_wtd<0) +
-    tile('Runway', `${{runwayTxt}}<small>mo</small>`, `at ${{fM(Math.abs(K.burn_day),3)}} a day`,
-         chip(K.runway_months!=null&&K.runway_months<12?'bad':'good',
-              K.runway_months==null?'● cash is building':`${{K.runway_months<12?'▼ under':'▲ over'}} 12 months`),
-         K.runway_months!=null&&K.runway_months<12) +
+    tile('Cash balance', fM(K.balance,2), `as at ${{M.asat}}`,
+         chip(K.net_wtd>=0?'good':'bad',
+              `${{K.net_wtd>=0?'▲':'▼'}} ${{fMs(K.net_wtd,2)}} last 7 days`), K.net_wtd<0) +
+    tile('Weeks of cover', K.cover_weeks==null?`${{K.horizon}}+`:`${{K.cover_weeks}}`,
+         K.cover_weeks==null?`clears the floor all ${{K.horizon}} weeks`:`before the floor is breached`,
+         chip(K.cover_weeks==null?'good':'bad',
+              K.cover_weeks==null?`▲ no breach forecast`:`▼ breaches in week ${{K.cover_weeks}}`),
+         K.cover_weeks!=null) +
     tile('Daily burn', fMs(K.burn_day,3), `20-day average`,
-         chip(burnPos?'good':'bad', burnPos?'▲ net inflow':'▼ net outflow'), !burnPos) +
-    tile('Collections', fM(K.collections_mtd,3), `month to date`,
-         chip('flat', `${{L.labels.length}} days in ledger`)) +
-    tile('AR outstanding', fM(K.ar_total,3), `${{fP(K.ar_over60_share,0)}} over 60 days`,
-         chip(K.ar_over60_share>0.25?'bad':'flat',
-              K.ar_over60_share>0.25?'▼ concentration in 60+':'● within tolerance'),
-         K.ar_over60_share>0.25) +
-    tile('Forecast low', fM(K.trough,3), K.trough_week||'—',
+         chip(inflow?'good':'bad', inflow?'▲ net inflow':'▼ net outflow'), !inflow) +
+    tile('Forecast low', fM(K.trough,2), K.trough_week||'—',
          chip(K.trough<=K.floor?'bad':'good',
-              K.trough<=K.floor?'▼ breaches floor':'▲ clears floor'), K.trough<=K.floor);
+              K.trough<=K.floor?'▼ breaches floor':'▲ clears floor'), K.trough<=K.floor) +
+    tile('Forecast in', fM(K.forecast_in,2), `${{F.length}} weeks ahead`,
+         chip('flat', `across ${{D.inflow_sources.length}} sources`)) +
+    tile('Forecast out', fM(K.forecast_out,2), `${{F.length}} weeks ahead`,
+         chip(K.forecast_out>K.forecast_in?'bad':'good',
+              K.forecast_out>K.forecast_in?'▼ outflows exceed inflows':'▲ covered by inflows'),
+         K.forecast_out>K.forecast_in);
 
-  /* 1 · daily movement */
-  $('#led-scope').textContent=`${{UNIT()}} · ${{L.labels.length}} business days`;
+  /* 1 · actuals */
+  $('#led-scope').textContent=`${{UNIT()}} · ${{L.labels.length}} days to ${{M.asat}}`;
   $('#bal-scope').textContent=`${{UNIT()}} · closing · floor ${{fM(K.floor,2)}}`;
   lineChart('#ch-bal', L.sparse, [{{name:'Closing balance', values:L.balance, color:'--s1', area:true}}],
             {{yFmt:v=>SY()+f2(v)+'M', minZero:false, frame:'full', floor:K.floor}});
@@ -262,8 +268,8 @@ function render(){{
     {{name:'Receipts', values:W.receipts, color:'--s1'}},
     {{name:'Payments', values:W.payments, color:'--s3'}}], {{fmt:v=>fM(v,2)}});
   $('#nw-scope').textContent=`${{UNIT()}} · weekly net`;
-  columnChart('#ch-net', W.recent, [{{name:'Net movement', values:W.net,
-              color:'--s2'}}], {{fmt:v=>fM(v,2)}});
+  columnChart('#ch-net', W.recent, [{{name:'Net movement', values:W.net, color:'--s2'}}],
+              {{fmt:v=>fM(v,2)}});
 
   /* 2 · forecast */
   $('#fc-scope').textContent=`${{F.length}} weeks from ${{M.forecast_from}}`;
@@ -272,26 +278,27 @@ function render(){{
             values:F.map(w=>w.closing), color:'--s1', area:true}}],
             {{yFmt:v=>SY()+f2(v)+'M', minZero:false, frame:'full', floor:K.floor}});
   $('#fc-note').textContent = K.trough<=K.floor
-    ? `The projection dips to ${{fM(K.trough,3)}} in ${{K.trough_week}}, below the ${{fM(K.floor,2)}} operating floor. Collections timing is the main lever.`
-    : `The projection holds above the ${{fM(K.floor,2)}} operating floor throughout, with its low point of ${{fM(K.trough,3)}} in ${{K.trough_week}}.`;
+    ? `The projection falls to ${{fM(K.trough,2)}} in ${{K.trough_week}}, below the ${{fM(K.floor,2)}} operating floor.`
+    : `The projection holds above the ${{fM(K.floor,2)}} floor throughout, at its lowest ${{fM(K.trough,2)}} in ${{K.trough_week}}.`;
 
-  simpleTable('#t-fc', ['Week','Collections','Other','Payroll','Suppliers','Tax','Debt','Other pmts','Net','Closing'],
+  const CATS=D.cats;
+  simpleTable('#t-fc', ['Week', ...CATS.map(c=>c.short||c.label), 'Net', 'Closing'],
     F.map(w=>({{cls: w.closing===K.trough?'trough':'',
-      cells:[esc(w.week), f2(w.collections), f2(w.other_receipts), f2(w.payroll),
-             f2(w.suppliers), f2(w.tax), f2(w.debt), f2(w.other_payments),
-             f2s(w.net), f2(w.closing)],
-      cellCls:['','','','','','','','', w.net<0?'neg':'pos','']}})));
+      cells:[esc(w.week), ...CATS.map(c=>f2(w.vals[c.key])), f2s(w.net), f2(w.closing)],
+      cellCls:['', ...CATS.map(c=>c.dir==='in'?'pos':''), w.net<0?'neg':'pos','']}})));
 
-  /* 3 · receivables */
-  $('#ar-scope').textContent=`as at ${{M.asat}} · total ${{fM(D.ar_aging_total,2)}}`;
-  $('#ag-scope').textContent=`total ${{fM(D.ar_aging_total,2)}}`;
-  hbarChart('#ch-ag', D.ar_aging.map(b=>({{label:b.bucket.replace(' — ',' · '),
-            amount:b.amount, share:b.share}})),
-            {{frame:'aging', padL:200, colors:['--s1','--s2','--s3'], total:D.ar_aging_total}});
-  const ctTot=sum(D.ar_by_contract.map(c=>c.amount));
-  $('#ct-scope').textContent=`total ${{fM(ctTot,2)}}`;
-  hbarChart('#ch-ct', D.ar_by_contract.map(c=>({{label:c.contract, amount:c.amount,
-            share:c.amount/ctTot}})), {{frame:'aging', padL:200, total:ctTot}});
+  /* 3 · composition */
+  $('#comp-scope').textContent=`over the ${{F.length}}-week horizon`;
+  const inTot=sum(D.inflow_sources.map(x=>x.amount));
+  const outTot=sum(D.outflow_cats.map(x=>x.amount));
+  $('#in-scope').textContent = inTot < K.forecast_in-0.005
+    ? `top ${{D.inflow_sources.length}} of ${{fM(K.forecast_in,2)}}`
+    : `total ${{fM(inTot,2)}}`;
+  $('#out-scope').textContent=`total ${{fM(outTot,2)}}`;
+  hbarChart('#ch-in', D.inflow_sources.map(x=>({{label:x.source, amount:x.amount,
+            share:inTot?x.amount/inTot:0}})), {{frame:'aging', padL:210, total:inTot}});
+  hbarChart('#ch-out', D.outflow_cats.map(x=>({{label:x.cat, amount:x.amount,
+            share:outTot?x.amount/outTot:0}})), {{frame:'aging', padL:210, color:'--s3', total:outTot}});
 
   /* 4 · notes */
   $('#updates').innerHTML=D.notes.map(n=>
