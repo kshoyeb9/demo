@@ -53,6 +53,10 @@ PAGE = f"""<title>Noon Cash Position</title>
   .fc-table th,.fc-table td{{padding:6px 6px}}
   .fc-table td:first-child,.fc-table th:first-child{{white-space:nowrap;padding-left:10px}}
   .fc-table th:last-child,.fc-table td:last-child{{padding-right:10px}}
+  /* Counterparty and date are text, not figures — left-align them. */
+  .dt th:nth-child(2),.dt td:nth-child(2),
+  .dt th:nth-child(3),.dt td:nth-child(3){{text-align:left}}
+  .dt td:nth-child(2){{font-weight:400}}
   tr.trough td{{background:var(--bad-bg)!important;font-weight:600}}
   tr.trough td:first-child::after{{content:"LOW";margin-left:8px;font-size:9.5px;font-weight:700;
     color:var(--bad-ink);border:1px solid var(--orange);padding:0 4px;vertical-align:1px}}
@@ -88,8 +92,9 @@ PAGE = f"""<title>Noon Cash Position</title>
     <a href="#s0"><span class="n">—</span>Position today</a>
     <a href="#s1"><span class="n">1</span>Daily movement</a>
     <a href="#s2"><span class="n">2</span>13-week outlook</a>
-    <a href="#s3"><span class="n">3</span>Forecast composition</a>
-    <a href="#s4"><span class="n">4</span>Notes</a>
+    <a href="#s3"><span class="n">3</span>Next four weeks</a>
+    <a href="#s4"><span class="n">4</span>Forecast composition</a>
+    <a href="#s5"><span class="n">5</span>Notes</a>
     <div class="rail-foot">Actuals run to the as-at date. Everything from the next Monday on is
       forecast and only as good as its last revision.</div>
   </nav>
@@ -134,7 +139,22 @@ PAGE = f"""<title>Noon Cash Position</title>
     <section class="sec" id="s2">
       <div class="sec-head"><span class="n">2</span><h2>13-week outlook</h2>
         <span class="scope" id="fc-scope"></span></div>
-      <div class="card">
+      <div class="panels">
+        <div class="panel wide">
+          <div class="panel-h"><span class="eyebrow">Across the horizon</span>
+            <span class="when" id="sum-when"></span></div>
+          <div class="tiles" id="sum-tiles" style="grid-template-columns:repeat(4,1fr)"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-h"><h3>Opening to closing</h3><span class="sub" id="wf-scope"></span></div>
+        <div class="legend"><span><i style="background:var(--c-total)"></i>Balance</span>
+          <span><i style="background:var(--c-in)"></i>Inflow</span>
+          <span><i style="background:var(--c-out)"></i>Outflow</span></div>
+        <div class="chart" id="ch-wf"></div>
+        <div class="note" id="wf-note"></div>
+      </div>
+      <div class="card" style="margin-top:16px">
         <div class="card-h"><h3>Projected closing balance</h3><span class="sub" id="fcb-scope"></span></div>
         <div class="legend"><span><i class="line" style="background:var(--s1)"></i>Projected balance</span>
           <span><i class="dash" style="color:var(--orange)"></i>Operating floor</span></div>
@@ -150,7 +170,26 @@ PAGE = f"""<title>Noon Cash Position</title>
     </section>
 
     <section class="sec" id="s3">
-      <div class="sec-head"><span class="n">3</span><h2>Forecast composition</h2>
+      <div class="sec-head"><span class="n">3</span><h2>Next four weeks</h2>
+        <span class="scope" id="near-scope"></span></div>
+      <div class="card">
+        <div class="tiles" id="near-tiles" style="grid-template-columns:repeat(4,1fr)"></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3 class="tbl-title">Expected inflows</h3>
+        <div class="tbl-wrap"><table id="t-in" class="fc-table dt"></table></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3 class="tbl-title">Expected outflows</h3>
+        <div class="tbl-wrap"><table id="t-out" class="fc-table dt"></table></div>
+        <div class="note">Dates are when each amount is expected to settle. Categories sweep up
+          smaller items: payroll includes GOSI, pensions and regional payroll; taxes include VAT and
+          regional levies; AP includes rent and petty cash.</div>
+      </div>
+    </section>
+
+    <section class="sec" id="s4">
+      <div class="sec-head"><span class="n">4</span><h2>Forecast composition</h2>
         <span class="scope" id="comp-scope"></span></div>
       <div class="grid g-aging">
         <div class="card">
@@ -166,8 +205,8 @@ PAGE = f"""<title>Noon Cash Position</title>
       </div>
     </section>
 
-    <section class="sec" id="s4">
-      <div class="sec-head"><span class="n">4</span><h2>Notes</h2>
+    <section class="sec" id="s5">
+      <div class="sec-head"><span class="n">5</span><h2>Notes</h2>
         <span class="scope">Written alongside the daily update</span></div>
       <div class="updates" id="updates"></div>
     </section>
@@ -211,6 +250,11 @@ function convertFX(src,k,sym){{
   d.outflow_cats.forEach(x=>mul(x,['amount']));
   mul(d.kpi,['balance','burn_day','net_wtd','receipts_mtd','floor','trough',
              'forecast_in','forecast_out']);
+  mul(d.summary,['opening','inflows','outflows','closing']);
+  d.waterfall.forEach(w=>mul(w,['value','running']));
+  d.detail.closings=arr(d.detail.closings);
+  d.detail.in_totals=arr(d.detail.in_totals); d.detail.out_totals=arr(d.detail.out_totals);
+  [...d.detail.inflows,...d.detail.outflows].forEach(x=>{{ x.vals=arr(x.vals); mul(x,['total']); }});
   d.notes.forEach(n=>n.text=prose(n.text));
   return d;
 }}
@@ -271,7 +315,47 @@ function render(){{
   columnChart('#ch-net', W.recent, [{{name:'Net movement', values:W.net, color:'--s2'}}],
               {{fmt:v=>fM(v,2)}});
 
-  /* 2 · forecast */
+  /* 2 · horizon summary, waterfall */
+  const S=D.summary, WF=D.waterfall;
+  $('#sum-when').textContent=`${{M.forecast_from}} · ${{F.length}} weeks`;
+  $('#sum-tiles').innerHTML =
+    tile('Opening balance', fM(S.opening,2), `at ${{M.asat}}`, chip('flat','last actual day')) +
+    tile('Total inflows',   fM(S.inflows,2), `expected receipts`,
+         chip('good', `▲ across ${{F.length}} weeks`)) +
+    tile('Total outflows',  fM(S.outflows,2), `expected payments`,
+         chip('bad', `▼ across ${{F.length}} weeks`), true) +
+    tile('Closing balance', fM(S.closing,2), `projected at ${{F[F.length-1].week}}`,
+         chip(S.closing>=S.opening?'good':'bad',
+              `${{S.closing>=S.opening?'▲':'▼'}} ${{fMs(S.closing-S.opening,2)}} over the horizon`),
+         S.closing<S.opening);
+  $('#wf-scope').textContent=`${{UNIT()}} · ${{M.forecast_from}} to ${{F[F.length-1].week}}`;
+  waterfall('#ch-wf', WF);
+  $('#wf-note').textContent =
+    `Expected inflows of ${{fM(S.inflows,2)}} fall ${{fM(Math.abs(S.outflows-S.inflows),2)}} `
+    + (S.outflows>S.inflows ? 'short of' : 'above')
+    + ` the ${{fM(S.outflows,2)}} of payments due, taking cash from ${{fM(S.opening,2)}} to ${{fM(S.closing,2)}}.`;
+
+  /* 3 · next four weeks */
+  const N=D.detail;
+  $('#near-scope').textContent=`${{N.ranges[0]}} to ${{N.ranges[N.ranges.length-1].split(' – ')[1]}}`;
+  $('#near-tiles').innerHTML = N.ranges.map((rg,i)=>
+    tile(`Week ${{i+1}}`, fM(N.closings[i],2), rg,
+         chip(N.in_totals[i]>=N.out_totals[i]?'good':'bad',
+              `${{N.in_totals[i]>=N.out_totals[i]?'▲':'▼'}} ${{fMs(N.in_totals[i]-N.out_totals[i],2)}} net`),
+         N.in_totals[i]<N.out_totals[i])).join('');
+
+  const nearTable=(id, rows, totals, dirCls)=>{{
+    simpleTable(id, ['Category','Counterparty','Expected', ...N.weeks, 'Total'],
+      rows.map(x=>({{cells:[esc(x.cat), esc(x.name), esc(x.date),
+                          ...x.vals.map(v=>v?f2(v):'—'), f2(x.total)],
+                   cellCls:['','','', ...x.vals.map(()=>dirCls), dirCls]}}))
+      .concat([{{cls:'total', cells:['','Total','', ...totals.map(v=>f2(v)),
+                 f2(totals.reduce((a,b)=>a+b,0))], cellCls:[]}}]));
+  }};
+  nearTable('#t-in',  N.inflows,  N.in_totals,  'pos');
+  nearTable('#t-out', N.outflows, N.out_totals, 'neg');
+
+  /* 4 · forecast */
   $('#fc-scope').textContent=`${{F.length}} weeks from ${{M.forecast_from}}`;
   $('#fcb-scope').textContent=`${{UNIT()}} · projected closing`;
   lineChart('#ch-fc', F.map(w=>w.week), [{{name:'Projected balance',
@@ -287,7 +371,7 @@ function render(){{
       cells:[esc(w.week), ...CATS.map(c=>f2(w.vals[c.key])), f2s(w.net), f2(w.closing)],
       cellCls:['', ...CATS.map(c=>c.dir==='in'?'pos':''), w.net<0?'neg':'pos','']}})));
 
-  /* 3 · composition */
+  /* 5 · composition */
   $('#comp-scope').textContent=`over the ${{F.length}}-week horizon`;
   const inTot=sum(D.inflow_sources.map(x=>x.amount));
   const outTot=sum(D.outflow_cats.map(x=>x.amount));
@@ -300,7 +384,7 @@ function render(){{
   hbarChart('#ch-out', D.outflow_cats.map(x=>({{label:x.cat, amount:x.amount,
             share:outTot?x.amount/outTot:0}})), {{frame:'aging', padL:210, color:'--s3', total:outTot}});
 
-  /* 4 · notes */
+  /* 6 · notes */
   $('#updates').innerHTML=D.notes.map(n=>
     `<div class="upd"><div class="eyebrow">${{esc(n.topic)}}</div><p>${{esc(n.text)}}</p></div>`).join('');
 }}

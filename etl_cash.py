@@ -75,6 +75,17 @@ CATS = [
 SRC_ROWS = list(range(14, 18)) + list(range(19, 35)) + [36] + list(range(38, 40)) \
          + list(range(41, 48)) + [49, 50, 52]
 
+# Detail rows grouped under their category, for the counterparty tables. The
+# footnotes in the weekly pack explain that each category sweeps up smaller
+# items; these are those items.
+DETAIL = {
+    "in": [("Tracks", range(14, 18)), ("B2B", range(19, 35)), ("Partnership", [36]),
+           ("B2C", range(38, 40)), ("Financing", range(41, 48)),
+           ("Grants & other", [49, 50, 52])],
+    "out": [("Payroll & benefits", range(55, 74)), ("Taxes & government", range(75, 80)),
+            ("AP payments", range(81, 87)), ("Financing", range(88, 93))],
+}
+
 def val(sh, r, c):
     v = sh.cell(row=r, column=c).value
     return float(v) if isinstance(v, (int, float)) else 0.0
@@ -169,6 +180,61 @@ outflow_cats = sorted(
      for r, lab, sh, dr in CATS if dr == "out"],
     key=lambda x: -x["amount"])
 
+
+# ══ SUMMARY, WATERFALL AND NEAR-TERM DETAIL ══════════════════════════════════
+# Modelled on the weekly CF pack: a four-part headline, a waterfall from opening
+# to closing, and counterparty-level detail with the date each amount is expected.
+summary = {"opening": balance, "inflows": rnd(fc_in, 3),
+           "outflows": rnd(fc_out, 3), "closing": forecast[-1]["closing"]}
+
+waterfall = [{"step": "Opening", "kind": "total", "value": balance}]
+_run = balance
+_run += fc_in
+waterfall.append({"step": "Total inflows", "kind": "delta",
+                  "value": rnd(fc_in, 3), "running": rnd(_run, 3)})
+for lab, amt in [(c["cat"], c["amount"]) for c in outflow_cats]:
+    _run -= amt
+    waterfall.append({"step": lab, "kind": "delta", "value": rnd(-amt, 3),
+                      "running": rnd(_run, 3)})
+waterfall.append({"step": "Closing", "kind": "total", "value": forecast[-1]["closing"]})
+
+# Next four weeks, counterparty by counterparty, with expected dates from 'Daily CF'
+NEAR = fc_cols[:4]
+day_by_date = {d: c for c, d, _ in dcols}
+
+def week_days(start):
+    return [day_by_date[start + timedelta(days=k)]
+            for k in range(7) if (start + timedelta(days=k)) in day_by_date]
+
+def detail_rows(direction):
+    out = []
+    for cat, rng in DETAIL[direction]:
+        for r in rng:
+            vals, dates = [], []
+            for c, wstart in NEAR:
+                v = val(wk, r, c) / M
+                vals.append(rnd(v, 3))
+                if v > 0:
+                    for dc in week_days(wstart):
+                        if abs(val(day, r, dc)) > 0:
+                            dates.append(day.cell(row=R_FROM, column=dc).value)
+            if sum(vals) > 0:
+                ds = sorted({as_date(x) for x in dates if as_date(x)})
+                out.append({"cat": cat, "name": label_of(r),
+                            "date": "/".join(d.strftime("%d %b") for d in ds[:2]) or "—",
+                            "vals": vals, "total": rnd(sum(vals), 3)})
+    return sorted(out, key=lambda x: -x["total"])
+
+near_in, near_out = detail_rows("in"), detail_rows("out")
+detail = {
+    "weeks": [f"{d:%d %b}" for _, d in NEAR],
+    "ranges": [f"{d:%d %b} – {d+timedelta(days=6):%d %b}" for _, d in NEAR],
+    "inflows": near_in, "outflows": near_out,
+    "in_totals":  [rnd(sum(x["vals"][i] for x in near_in), 3)  for i in range(len(NEAR))],
+    "out_totals": [rnd(sum(x["vals"][i] for x in near_out), 3) for i in range(len(NEAR))],
+    "closings":   [w["closing"] for w in forecast[:len(NEAR)]],
+}
+
 # ── KPIs ─────────────────────────────────────────────────────────────────────
 recent   = net[-20:]
 burn_day = sum(recent)/len(recent) if recent else 0.0
@@ -212,6 +278,7 @@ DATA = {
                "receipts": [rnd(r,3) for _,r,_ in led], "payments": [rnd(p,3) for _,_,p in led],
                "net": [rnd(n,3) for n in net], "balance": [rnd(b,3) for b in bal]},
     "weekly": weekly, "forecast": forecast, "cats": cats_meta,
+    "summary": summary, "waterfall": waterfall, "detail": detail,
     "inflow_sources": inflow_sources, "outflow_cats": outflow_cats, "notes": notes,
 }
 
