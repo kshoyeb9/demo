@@ -5,8 +5,11 @@ The stylesheet and the chart library are lifted verbatim from index.html so the
 two pages stay visually identical siblings. Re-run this after changing the
 monthly page's design to carry the change across.
 
-    python make_cash_page.py            # writes cash.html with a DATA placeholder
-    python etl_cash.py --file ...       # fills that placeholder in
+    python make_cash_page.py                      # writes cash.html with a DATA placeholder
+    python etl_cash.py --file <CF workbook>       # fills that placeholder in
+
+The data comes from the treasury team's own 13-week cash flow workbook; there is
+no separate input file to maintain.
 
 Usage:
     python make_cash_page.py [--from index.html] [--out cash.html]
@@ -401,4 +404,4 @@ render();
 
 Path(a.out).write_text(PAGE, encoding="utf-8")
 print(f"✓ Created {a.out} (style + chart library lifted from {a.src})")
-print(f"  Now run:  python etl_cash.py --file noon_cash_daily.xlsx")
+print(f"  Now run:  python etl_cash.py --file <your 13-week CF workbook>")
