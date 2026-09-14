@@ -243,8 +243,9 @@
   <nav class="rail" aria-label="Sections">
     <a href="#s0"><span class="n">—</span>Executive summary</a>
     <a href="#s1"><span class="n">1</span>P&amp;L performance</a>
-    <a href="#s2"><span class="n">2</span>Working capital movements</a>
-    <a href="#s3"><span class="n">3</span>Key updates</a>
+    <a href="#s2"><span class="n">2</span>Cash position</a>
+    <a href="#s3"><span class="n">3</span>Working capital movements</a>
+    <a href="#s4"><span class="n">4</span>Key updates</a>
     <div class="rail-foot">Choose any month range at the top — a single month, a fiscal quarter, or the year to date. Every chart and table below follows it. Hover any mark for its value.</div>
   </nav>
 
@@ -294,8 +295,36 @@
     </section>
 
     <!-- 2 Working capital movements -->
+    <!-- 2 Cash position -->
     <section class="sec" id="s2">
-      <div class="sec-head"><span class="n">2</span><h2>Working capital movements</h2><span class="scope">Position, receivables and payables</span></div>
+      <div class="sec-head"><span class="n">2</span><h2>Cash position</h2>
+        <span class="scope" id="cash-scope"></span></div>
+      <div class="panels">
+        <div class="panel wide">
+          <div class="panel-h"><span class="eyebrow">Movement and balance</span>
+            <span class="when" id="cash-when"></span></div>
+          <div class="tiles" id="cash-tiles" style="grid-template-columns:repeat(4,1fr)"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-h"><h3>Cash bridge — month</h3><span class="sub" id="brm-scope"></span></div>
+        <div class="legend"><span><i style="background:var(--c-total)"></i>Balance</span>
+          <span><i style="background:var(--c-in)"></i>Inflow</span>
+          <span><i style="background:var(--c-out)"></i>Outflow</span></div>
+        <div class="chart" id="ch-brm"></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-h"><h3>Cash bridge — year to date</h3><span class="sub" id="bry-scope"></span></div>
+        <div class="legend"><span><i style="background:var(--c-total)"></i>Balance</span>
+          <span><i style="background:var(--c-in)"></i>Inflow</span>
+          <span><i style="background:var(--c-out)"></i>Outflow</span></div>
+        <div class="chart" id="ch-bry"></div>
+        <div class="note" id="cash-note"></div>
+      </div>
+    </section>
+
+    <section class="sec" id="s3">
+      <div class="sec-head"><span class="n">3</span><h2>Working capital movements</h2><span class="scope">Position, receivables and payables</span></div>
       <div class="card">
         <div class="card-h"><h3>Working capital — monthly position</h3><span class="sub"><span id="wc-units">USD M</span> · closing balances · <b>F</b> = forecast</span></div>
         <div class="tbl-wrap"><table id="t-wc" class="fixed"></table></div>
@@ -328,8 +357,8 @@
     </section>
 
     <!-- 4 Key updates -->
-    <section class="sec" id="s3">
-      <div class="sec-head"><span class="n">3</span><h2>Key updates</h2><span class="scope">Management highlights · written each month alongside the numbers</span></div>
+    <section class="sec" id="s4">
+      <div class="sec-head"><span class="n">4</span><h2>Key updates</h2><span class="scope">Management highlights · written each month alongside the numbers</span></div>
       <div class="updates" id="updates"></div>
     </section>
 
@@ -719,6 +748,35 @@ function render(){
     {label:'YTD · '+M.ytd_label,    parts:revRows.map(r=>({rev:r.ytd.actual}))},
   ], cats);
 
+  /* 2 · Cash position — monthly grain. The daily position lives on its own page. */
+  const Rw=D.runway, bM=D.bridge_month, bY=D.bridge_ytd;
+  const cashClose=bM.at(-1).value, cashOpenY=bY[0].value;
+  $('#cash-scope').textContent=`${kind} · ${pLab}`;
+  $('#cash-when').textContent=`${M.period} · closing ${fM(cashClose)}`;
+  $('#cash-tiles').innerHTML =
+    tile('Closing cash', fM(cashClose), `at ${asAt}`,
+         chip(Rw.ytd_move>=0?'good':'bad',
+              `${Rw.ytd_move>=0?'▲':'▼'} ${fMs(Rw.ytd_move)} since 1 Jan`), Rw.ytd_move<0) +
+    tile('Movement in month', fMs(Rw.burn_month), `${M.period}`,
+         chip(Rw.burn_month>=0?'good':'bad',
+              Rw.burn_month>=0?'▲ net inflow':'▼ net outflow'), Rw.burn_month<0) +
+    tile('Movement YTD', fMs(Rw.ytd_move), `opened at ${fM(cashOpenY)}`,
+         chip(Rw.ytd_move>=0?'good':'bad',
+              `${Rw.ytd_move>=0?'▲ generated':'▼ consumed'} ${fM(Math.abs(Rw.ytd_move))}`),
+         Rw.ytd_move<0) +
+    tile('Runway', `${Rw.months==null?'—':Rw.months.toFixed(1)}<small>mo</small>`,
+         `at ${fM(Math.abs(Rw.burn_3m))} monthly burn`,
+         chip(Rw.months!=null&&Rw.months<12?'bad':'good',
+              Rw.months==null?'● cash building':
+              `${Rw.months<12?'▼ under':'▲ over'} 12 months`),
+         Rw.months!=null&&Rw.months<12);
+  $('#brm-scope').textContent=`${UNIT()} · ${M.period}`;
+  $('#bry-scope').textContent=`${UNIT()} · ${M.ytd_label}`;
+  waterfall('#ch-brm', bM); waterfall('#ch-bry', bY);
+  $('#cash-note').textContent =
+    `Monthly close, from the management workbook. The live daily position, the thirteen-week `
+    + `forecast and counterparty-level detail are on the Cash Position dashboard.`;
+
   /* 2 · Working capital movements */
   simpleTable('#t-wc', ['Month','Receivables','Payables','Deferred rev.','Other WC','Net WC','Movement'],
     D.wc_monthly.map(r=>{ const idx=MONTHS.indexOf(r.month.slice(0,3)); const fc=r.forecast||idx<0||idx>LAST; const inR=!fc&&idx>=R.i0&&idx<=R.i1;
@@ -742,7 +800,7 @@ function render(){
   hbarChart('#ch-ap-vendor', D.ap_by_vendor.map(v=>({label:v.vendor,amount:v.amount,share:v.amount/venTot})), {frame:'aging', padL:200, color:'--s3', total:venTot});
 
 
-  /* 3 · Key updates */
+  /* 4 · Key updates */
   $('#updates').innerHTML=D.key_updates.map(u=>`<div class="upd"><div class="eyebrow">${esc(u.topic)}</div><p>${esc(u.text)}</p></div>`).join('');
 }
 render();
