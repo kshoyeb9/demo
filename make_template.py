@@ -405,25 +405,35 @@ r += 1
 
 # ── 5 · P&L BY BUSINESS UNIT (this year vs last) ─────────────────────────────
 bar(ws, r, "  SECTION 5 — P&L BY BUSINESS UNIT  (USD M, year to date)", width=7); r += 1
-note(ws, r, "Enter revenue, cost of sales and marketing per unit for each year. Gross profit, "
-            "contribution and both margins are calculated.", width=7); r += 1
-note(ws, r, "Costs POSITIVE. Leave a year blank where the unit did not trade.", width=7); r += 1
+note(ws, r, "Same units as Sections 2 and 3. Revenue this year is pulled from Section 2; enter "
+            "cost of sales and marketing. Gross profit, contribution and margins are calculated.", width=7); r += 1
+note(ws, r, "Costs POSITIVE. Leave the prior year blank where the unit did not trade. Cost of sales "
+            "should allocate Direct costs; marketing should allocate the Marketing line.", width=7); r += 1
 headers(ws, r, ["Business Unit (P&L)",
                 f"Revenue {CUR_FY}", f"Cost of sales {CUR_FY}", f"Marketing {CUR_FY}",
                 f"Revenue {PRI_FY}", f"Cost of sales {PRI_FY}", f"Marketing {PRI_FY}"]); r += 1
+# Same units as Sections 2 and 3, so this table ties to the P&L summary.
+# Current-year revenue is not retyped — it points at Section 2's Actual YTD.
+# Cost of sales allocates Section 3's Direct costs; marketing allocates its
+# Marketing line. Prior year has no monthly grid, so all three are entered.
 BU_PL = [
-    # name,                            cur: rev, cos, mkt      prior: rev, cos, mkt
-    ("Tracks",                         2.80, 1.65, 0.09,       0.30, 0.15, 0.05),
-    ("Govt. Schools",                  0.80, 0.31, 0.02,       None, None, None),
-    ("B2B",                            4.60, 1.24, 0.09,       5.90, 0.89, 0.11),
-    ("Legacy B2C",                     7.00, 4.97, 2.10,       5.70, 4.05, 1.76),
-    ("Out of School + Bridge",         0.80, 0.08, 0.02,       0.37, 0.01, 0.01),
+    # name,                     cos_cur, mkt_cur,   rev_pri, cos_pri, mkt_pri
+    ("Tracks",                  2.20, 0.30,         3.20, 1.45, 0.22),
+    ("Govt Schools — Legacy",    1.16, 0.12,         3.35, 1.35, 0.14),
+    ("Govt Schools — New",       0.65, 0.10,         None, None, None),
+    ("B2B",                     0.98, 0.09,         4.10, 1.15, 0.10),
+    ("Out of School",           0.07, 0.06,         0.37, 0.04, 0.01),
 ]
 bupl_first = r
-for name, *vals in BU_PL:
-    put(ws, r, 1, name, kind="input")
-    for i, v in enumerate(vals):
-        put(ws, r, 2+i, v, kind="input", fmt=FMT_M)
+for name, cos_c, mkt_c, rev_p, cos_p, mkt_p in BU_PL:
+    put(ws, r, 1, name, kind="plain")
+    # Revenue this year comes from Section 2, so the two can never disagree
+    put(ws, r, 2, f"=D{REV_ROW[name]}", kind="calc", fmt=FMT_M)
+    put(ws, r, 3, cos_c, kind="input", fmt=FMT_M)
+    put(ws, r, 4, mkt_c, kind="input", fmt=FMT_M)
+    put(ws, r, 5, rev_p, kind="input", fmt=FMT_M)
+    put(ws, r, 6, cos_p, kind="input", fmt=FMT_M)
+    put(ws, r, 7, mkt_p, kind="input", fmt=FMT_M)
     r += 1
 bupl_last = r-1
 put(ws, r, 1, "Total", kind="total")

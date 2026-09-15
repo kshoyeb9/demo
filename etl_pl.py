@@ -254,6 +254,14 @@ for r in read_table("Business Unit (P&L)", 7):
     years = []
     for off in (1, 4):                       # current year, then prior year
         rev, cos, mkt = r[off], r[off+1], r[off+2]
+        if off == 1:
+            # Current-year revenue is a formula pointing at Section 2, which
+            # openpyxl cannot read. Take it from the grid the same way Section 2
+            # does, so the two agree by construction rather than by luck.
+            rev = upto_active(rev_act, name)
+            if name not in rev_act:
+                sys.exit(f"'{name}' in Section 5 is not a unit in the Section 6 revenue grid. "
+                         f"Use the same names: {', '.join(rev_act)}.")
         if not any(has(x) for x in (rev, cos, mkt)):
             years.append(None)               # unit did not trade that year
             continue
@@ -498,9 +506,17 @@ for nm_, arr in (("AR", ar_monthly), ("AP", ap_monthly), ("working capital", wc_
     if len(arr) < NM:
         warn(f"{nm_} has {len(arr)} month(s) of data but the active month is {NM}")
 _bt = bu_pl[-1]["cur"]
-if _bt and abs(_bt["rev"] - rev_total["ytd"]["actual"]) > 0.05:
-    warn(f"Section 5 revenue by BU totals {_bt['rev']:.2f} but Section 2 YTD revenue is "
-         f"{rev_total['ytd']['actual']:.2f} — the two use different unit splits, so they are "
-         f"not expected to tie exactly, but check the gap is intended.")
+if _bt:
+    if abs(_bt["rev"] - rev_total["ytd"]["actual"]) > 0.02:
+        warn(f"Section 5 revenue totals {_bt['rev']:.2f} but Section 2 YTD revenue is "
+             f"{rev_total['ytd']['actual']:.2f}.")
+    _direct = next((c["ytd"]["actual"] for c in costs if c["name"] == "Direct costs"), None)
+    if _direct is not None and abs(_bt["cos"] - _direct) > 0.02:
+        warn(f"Section 5 cost of sales totals {_bt['cos']:.2f} but Section 3 Direct costs YTD "
+             f"is {_direct:.2f} — the allocation across units does not add back.")
+    _mkt = next((c["ytd"]["actual"] for c in costs if c["name"] == "Marketing"), None)
+    if _mkt is not None and abs(_bt["mkt"] - _mkt) > 0.02:
+        warn(f"Section 5 marketing totals {_bt['mkt']:.2f} but Section 3 Marketing YTD is "
+             f"{_mkt:.2f} — the allocation across units does not add back.")
 if not ar_by_contract: warn("AR by contract is empty — that chart will render blank.")
 if not ap_by_vendor:   warn("AP by vendor is empty — that chart will render blank.")
