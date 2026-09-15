@@ -47,6 +47,8 @@ FMT_NUM = '#,##0.0'
 MONTHS   = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 YR       = "26"
 ACTIVE   = 6          # June — the last closed month in this build
+CUR_FY   = "FY25/26"  # column headings on the BU P&L table
+PRI_FY   = "FY24/25"
 NM       = len(MONTHS)
 C0, C1   = 2, 1 + NM  # month columns B..M
 LAST_COL = C1 + 1
@@ -126,8 +128,8 @@ ibar(r, "  CLOSING A MONTH"); r += 2
 for title, body in [
     ("1.  Enter the month",
      "On the 'Dashboard Input' tab, type the month's figures into the twelve-month grids: "
-     "Section 5 (revenue and cost actuals), Section 6 (working capital), Sections 7 and 8 "
-     "(receivables and payables), and Section 9 (cash flow). These grids are the only place "
+     "Section 6 (revenue and cost actuals), Section 7 (working capital), Sections 8 and 9 "
+     "(receivables and payables), and Section 10 (cash flow). These grids are the only place "
      "actuals are entered."),
     ("2.  Move the active month",
      "In Section 1, set 'Active month number' to the month you just closed — 6 for June, "
@@ -152,16 +154,17 @@ for i, t in enumerate(["", "Section", "What it holds", "Derived from"]):
 r += 1
 for name, holds, src in [
     ("1 · Setup",            "Period labels and the active month number.", "You"),
-    ("2 · Revenue by BU",    "Month and YTD, actual vs budget.",           "Rolls up from Section 5"),
-    ("3 · Costs",            "Month and YTD, actual vs budget.",           "Rolls up from Section 5"),
+    ("2 · Revenue by BU",    "Month and YTD, actual vs budget.",           "Rolls up from Section 6"),
+    ("3 · Costs",            "Month and YTD, actual vs budget.",           "Rolls up from Section 6"),
     ("4 · P&L summary",      "Gross profit, contribution, EBITDA, margins.","Sections 2 and 3"),
-    ("5 · Monthly grids",    "Twelve months of revenue and cost, actual and budget.", "You"),
-    ("6 · Working capital",  "Twelve months of closing balances; YTD movement.", "You (monthly), rest rolls up"),
-    ("7 · Receivables",      "Twelve months of invoiced and collected; aging; by contract.", "You (monthly), rest rolls up"),
-    ("8 · Payables",         "Twelve months of purchases and payments; aging; by vendor.", "You (monthly), rest rolls up"),
-    ("9 · Cash flow",        "Twelve months of inflows and outflows.",     "You"),
-    ("10 · Cash position",   "KPI tiles, both bridges, monthly balance, runway.", "All rolls up from Section 9"),
-    ("11 · Key updates",     "Narrative commentary.",                      "You"),
+    ("5 · P&L by BU",        "Revenue, cost of sales and marketing per business unit, this year and last.", "You"),
+    ("6 · Monthly grids",    "Twelve months of revenue and cost, actual and budget.", "You"),
+    ("7 · Working capital",  "Twelve months of closing balances; YTD movement.", "You (monthly), rest rolls up"),
+    ("8 · Receivables",      "Twelve months of invoiced and collected; aging; by contract.", "You (monthly), rest rolls up"),
+    ("9 · Payables",         "Twelve months of purchases and payments; aging; by vendor.", "You (monthly), rest rolls up"),
+    ("10 · Cash flow",        "Twelve months of inflows and outflows.",     "You"),
+    ("11 · Cash position",   "KPI tiles, both bridges, monthly balance, runway.", "All rolls up from Section 10"),
+    ("12 · Key updates",     "Narrative commentary.",                      "You"),
 ]:
     put(ws, r, 2, name, kind="plain", bold=True)
     put(ws, r, 3, holds, kind="plain", wrap=True)
@@ -296,7 +299,7 @@ COST_BGT = {
 }
 
 monthly_start = r
-bar(ws, r, "  SECTION 5 — MONTHLY ACTUAL & BUDGET  (USD M)"); r += 1
+bar(ws, r, "  SECTION 6 — MONTHLY ACTUAL & BUDGET  (USD M)"); r += 1
 note(ws, r, "The source of truth. Actuals stop at the active month; budget covers all twelve."); r += 1
 
 grid_row = {}   # (block, line name) -> row
@@ -328,7 +331,7 @@ AVB = ["Actual (Month)", "Budget (Month)", "Actual YTD", "Budget YTD"]
 
 def avb_block(r, title, hdr0, names, act_block, bgt_block, total_label):
     bar(ws, r, title, width=5); r += 1
-    note(ws, r, "Every figure rolls up from Section 5, cut off at the active month.", width=5); r += 1
+    note(ws, r, "Every figure rolls up from Section 6, cut off at the active month.", width=5); r += 1
     headers(ws, r, [hdr0] + AVB); r += 1
     first = r
     rows = {}
@@ -400,8 +403,37 @@ for label, num in (("Gross profit margin", gp), ("Contribution margin", cp), ("E
     r += 1
 r += 1
 
+# ── 5 · P&L BY BUSINESS UNIT (this year vs last) ─────────────────────────────
+bar(ws, r, "  SECTION 5 — P&L BY BUSINESS UNIT  (USD M, year to date)", width=7); r += 1
+note(ws, r, "Enter revenue, cost of sales and marketing per unit for each year. Gross profit, "
+            "contribution and both margins are calculated.", width=7); r += 1
+note(ws, r, "Costs POSITIVE. Leave a year blank where the unit did not trade.", width=7); r += 1
+headers(ws, r, ["Business Unit (P&L)",
+                f"Revenue {CUR_FY}", f"Cost of sales {CUR_FY}", f"Marketing {CUR_FY}",
+                f"Revenue {PRI_FY}", f"Cost of sales {PRI_FY}", f"Marketing {PRI_FY}"]); r += 1
+BU_PL = [
+    # name,                            cur: rev, cos, mkt      prior: rev, cos, mkt
+    ("Tracks",                         2.80, 1.65, 0.09,       0.30, 0.15, 0.05),
+    ("Govt. Schools",                  0.80, 0.31, 0.02,       None, None, None),
+    ("B2B",                            4.60, 1.24, 0.09,       5.90, 0.89, 0.11),
+    ("Legacy B2C",                     7.00, 4.97, 2.10,       5.70, 4.05, 1.76),
+    ("Out of School + Bridge",         0.80, 0.08, 0.02,       0.37, 0.01, 0.01),
+]
+bupl_first = r
+for name, *vals in BU_PL:
+    put(ws, r, 1, name, kind="input")
+    for i, v in enumerate(vals):
+        put(ws, r, 2+i, v, kind="input", fmt=FMT_M)
+    r += 1
+bupl_last = r-1
+put(ws, r, 1, "Total", kind="total")
+for c in range(2, 8):
+    L = CL(c)
+    put(ws, r, c, f"=SUM({L}{bupl_first}:{L}{bupl_last})", kind="total", fmt=FMT_M)
+r += 2
+
 # ── 6 · WORKING CAPITAL ───────────────────────────────────────────────────────
-bar(ws, r, "  SECTION 6 — WORKING CAPITAL  (USD M)", width=8); r += 1
+bar(ws, r, "  SECTION 7 — WORKING CAPITAL  (USD M)", width=8); r += 1
 note(ws, r, "Closing balances. Payables and deferred revenue are NEGATIVE. Blank beyond the active month.", width=8); r += 1
 headers(ws, r, ["WC Month","Receivables","Payables","Deferred revenue","Other WC",
                 "Net WC","Movement","Forecast?"]); r += 1
@@ -438,7 +470,7 @@ for c in range(2, 6):
 r += 2
 
 # ── 7 · AR ────────────────────────────────────────────────────────────────────
-bar(ws, r, "  SECTION 7 — ACCOUNTS RECEIVABLE  (USD M)", width=6); r += 1
+bar(ws, r, "  SECTION 8 — ACCOUNTS RECEIVABLE  (USD M)", width=6); r += 1
 note(ws, r, "Enter invoiced and collected. Opening chains from the prior month; closing and rate calculate.", width=6); r += 1
 headers(ws, r, ["AR Month","Opening AR","Invoiced","Collected","Closing AR","Collection rate"]); r += 1
 AR = [(2.30,2.10),(2.25,2.05),(2.55,2.35),(2.40,2.30),(2.35,2.15),(2.50,2.40)]
@@ -485,7 +517,7 @@ r = share_table(r, "Largest receivable balances by contract.", "Contract",
                 "Total", name_kind="input")
 
 # ── 8 · AP ────────────────────────────────────────────────────────────────────
-bar(ws, r, "  SECTION 8 — ACCOUNTS PAYABLE  (USD M)", width=6); r += 1
+bar(ws, r, "  SECTION 9 — ACCOUNTS PAYABLE  (USD M)", width=6); r += 1
 note(ws, r, "Enter purchases, payments and DPO. Opening chains from the prior month.", width=6); r += 1
 headers(ws, r, ["AP Month","Opening AP","Purchases","Payments","Closing AP","DPO (days)"]); r += 1
 AP = [(2.00,2.05,43.5),(1.95,2.05,43.1),(2.00,2.10,40.5),(2.10,1.90,41.4),(1.95,2.05,43.1),(2.05,2.15,39.5)]
@@ -520,7 +552,7 @@ r = share_table(r, "Largest payable balances by vendor.", "Vendor",
                 "Total", name_kind="input")
 
 # ── 9 · MONTHLY CASH FLOW (drives everything in section 10) ──────────────────
-bar(ws, r, "  SECTION 9 — MONTHLY CASH FLOW  (USD M)"); r += 1
+bar(ws, r, "  SECTION 10 — MONTHLY CASH FLOW  (USD M)"); r += 1
 note(ws, r, "Enter every amount POSITIVE. Opening cash is entered once, for January; each later month chains."); r += 1
 note(ws, r, "Section 10 — tiles, both bridges, the balance chart and runway — is calculated entirely from this grid."); r += 1
 headers(ws, r, ["Cash Flow Line"] + MONTHS); r += 1
@@ -567,8 +599,8 @@ CFV = lambda name: val_at_active(cf_row[name])          # value at active month
 CFS = lambda name: sum_to_active(cf_row[name])          # sum to active month
 
 # ── 10 · CASH POSITION ────────────────────────────────────────────────────────
-bar(ws, r, "  SECTION 10 — CASH POSITION  (USD M)", width=9); r += 1
-note(ws, r, "Every figure below is calculated from Section 9. Only the tile notes are text you write.", width=9); r += 1
+bar(ws, r, "  SECTION 11 — CASH POSITION  (USD M)", width=9); r += 1
+note(ws, r, "Every figure below is calculated from Section 10. Only the tile notes are text you write.", width=9); r += 1
 headers(ws, r, ["Cash Tile","Month value","Month note","YTD value","YTD note"],
         merges={2: 3, 4: 3}); r += 1
 close_act  = CFV("Closing cash")
@@ -595,7 +627,7 @@ r += 1
 
 def bridge(r, title, hdr, per_month):
     """per_month True -> the active month's column; False -> Jan..active."""
-    note(ws, r, "Calculated from Section 9. Type is fixed; amounts roll up.", width=4); r += 1
+    note(ws, r, "Calculated from Section 10. Type is fixed; amounts roll up.", width=4); r += 1
     headers(ws, r, [hdr, "Type", "Amount", "Running balance"]); r += 1
     first = r
     steps = [("Opening cash", "Opening", f"=IF({ACT}<=1,{CL(C0)}{cf_row['Opening cash']},INDEX({month_row_refs(cf_row['Opening cash'])[0]},{ACT}))"
@@ -616,7 +648,7 @@ def bridge(r, title, hdr, per_month):
 r = bridge(r, "", "Bridge Step (Month)", True)
 r = bridge(r, "", "Bridge Step (YTD)",   False)
 
-note(ws, r, "Drives the cash balance chart. Prior-year months are typed; this year's roll up from Section 9."); r += 1
+note(ws, r, "Drives the cash balance chart. Prior-year months are typed; this year's roll up from Section 10."); r += 1
 headers(ws, r, ["Cash Month","Closing cash","Forecast?","Illustrative?"]); r += 1
 for m, v in [("Jul-25",5.35),("Aug-25",5.22),("Sep-25",5.10),
              ("Oct-25",5.02),("Nov-25",4.91),("Dec-25",4.80)]:
@@ -632,7 +664,7 @@ for i, m in enumerate(MONTHS):
     r += 1
 r += 1
 
-note(ws, r, "All four roll up from Section 9. Burn is negative when cash is consumed.", width=5); r += 1
+note(ws, r, "All four roll up from Section 10. Burn is negative when cash is consumed.", width=5); r += 1
 headers(ws, r, ["Runway Metric","Value","Notes"], merges={2: 3}); r += 1
 nm_row = cf_row["Net movement"]
 nm_full = month_row_refs(nm_row)[0]
@@ -655,7 +687,7 @@ put(ws, runway_first+3, 2,
 r += 1
 
 # ── 11 · KEY UPDATES ──────────────────────────────────────────────────────────
-bar(ws, r, "  SECTION 11 — KEY NARRATIVE UPDATES"); r += 1
+bar(ws, r, "  SECTION 12 — KEY NARRATIVE UPDATES"); r += 1
 note(ws, r, "One row per commentary point, in the order shown on the dashboard."); r += 1
 headers(ws, r, ["Update #","Topic","Commentary"], merges={2: 11}); r += 1
 for i, (topic, text) in enumerate([

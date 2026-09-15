@@ -244,6 +244,48 @@ rev_mix = [{"name": r["name"],
            for r in revenue if not r["total"]]
 
 
+# ══ P&L BY BUSINESS UNIT (this year vs last) ══════════════════════════════════
+# Only revenue, cost of sales and marketing are entered. Gross profit,
+# contribution and both margins are derived here so the table always adds up,
+# rather than being typed and drifting from its own components.
+bu_pl = []
+for r in read_table("Business Unit (P&L)", 7):
+    name = str(r[0]).strip()
+    years = []
+    for off in (1, 4):                       # current year, then prior year
+        rev, cos, mkt = r[off], r[off+1], r[off+2]
+        if not any(has(x) for x in (rev, cos, mkt)):
+            years.append(None)               # unit did not trade that year
+            continue
+        rv, cs, mk = num(rev), num(cos), num(mkt)
+        gp = rv - cs
+        cp = gp - mk
+        years.append({"rev": rnd(rv,3), "cos": rnd(cs,3), "mkt": rnd(mk,3),
+                      "gp": rnd(gp,3), "gp_pct": rnd(gp/rv,4) if rv else None,
+                      "cp": rnd(cp,3), "cp_pct": rnd(cp/rv,4) if rv else None})
+    bu_pl.append({"name": name, "cur": years[0], "pri": years[1]})
+
+def bu_total(key):
+    cols = [b[key] for b in bu_pl if b[key]]
+    if not cols: return None
+    rv = sum(c["rev"] for c in cols); cs = sum(c["cos"] for c in cols)
+    mk = sum(c["mkt"] for c in cols); gp = rv - cs; cp = gp - mk
+    return {"rev": rnd(rv,3), "cos": rnd(cs,3), "mkt": rnd(mk,3),
+            "gp": rnd(gp,3), "gp_pct": rnd(gp/rv,4) if rv else None,
+            "cp": rnd(cp,3), "cp_pct": rnd(cp/rv,4) if rv else None}
+bu_pl.append({"name": "Total", "cur": bu_total("cur"), "pri": bu_total("pri"), "total": True})
+
+# Year labels come from the table's own header cells, so the dashboard shows
+# whatever the workbook says rather than a hardcoded guess.
+_h = find_header("Business Unit (P&L)")
+def _yr_label(col, fallback):
+    if _h is None: return fallback
+    txt = str(rows[_h][col] or "")
+    m = re.search(r"(FY\s*[\d/]+|\d{4}/\d{2,4})", txt)
+    return m.group(1).strip() if m else fallback
+bu_pl_meta = {"cur_label": _yr_label(1, "This year"),
+              "pri_label": _yr_label(4, "Prior year")}
+
 # ══ WORKING CAPITAL ═══════════════════════════════════════════════════════════
 wc_raw = read_table("WC Month", 8)[:NM]
 wc_monthly, prev = [], None
@@ -400,7 +442,7 @@ key_updates = [{"topic": str(r[1]).strip(), "text": str(r[2]).strip()}
 
 # ══ ASSEMBLE & INJECT ═════════════════════════════════════════════════════════
 DATA = {"meta":meta, "revenue":revenue, "costs":costs, "pl":pl, "margins":margins,
-        "rev_mix":rev_mix, "wc_monthly":wc_monthly, "wc_ytd":wc_ytd,
+        "rev_mix":rev_mix, "bu_pl":bu_pl, "bu_pl_meta":bu_pl_meta, "wc_monthly":wc_monthly, "wc_ytd":wc_ytd,
         "ar_monthly":ar_monthly, "ar_ytd":ar_ytd, "ar_aging":ar_aging,
         "ar_aging_total":ar_aging_total, "ar_by_contract":ar_by_contract,
         "ap_monthly":ap_monthly, "ap_ytd":ap_ytd, "ap_aging":ap_aging,
@@ -455,5 +497,10 @@ if abs(sum(net) - (cash_close - cash_open)) > 0.005:
 for nm_, arr in (("AR", ar_monthly), ("AP", ap_monthly), ("working capital", wc_monthly)):
     if len(arr) < NM:
         warn(f"{nm_} has {len(arr)} month(s) of data but the active month is {NM}")
+_bt = bu_pl[-1]["cur"]
+if _bt and abs(_bt["rev"] - rev_total["ytd"]["actual"]) > 0.05:
+    warn(f"Section 5 revenue by BU totals {_bt['rev']:.2f} but Section 2 YTD revenue is "
+         f"{rev_total['ytd']['actual']:.2f} — the two use different unit splits, so they are "
+         f"not expected to tie exactly, but check the gap is intended.")
 if not ar_by_contract: warn("AR by contract is empty — that chart will render blank.")
 if not ap_by_vendor:   warn("AP by vendor is empty — that chart will render blank.")
