@@ -1,0 +1,39 @@
+# Copy to config.yaml and edit. config.yaml is git-ignored.
+
+preferences:
+  # Hard filters: failing any of these is an automatic left swipe.
+  # Use null to disable a filter.
+  min_age: 25
+  max_age: 35
+  max_distance_km: 25        # profiles showing miles are converted to km
+  require_bio: false         # pass on profiles with an empty bio
+  dealbreaker_keywords:      # case-insensitive; any hit = pass
+    - "no hookups"
+    - "crypto trader"
+
+  # Soft scoring: each hit in the bio adds its points.
+  keyword_points:
+    hiking: 2
+    travel: 1
+    books: 2
+    finance: 1
+    dog: 1
+
+  # Base score every profile starts with, and the score needed to swipe right.
+  base_score: 1
+  like_threshold: 1
+
+  # Used when the bot can't read the profile at all (layout changed, etc.).
+  unreadable_decision: pass  # like | pass
+
+limits:
+  max_swipes_per_session: 60
+  max_likes_per_day: 40      # stay well under the apps' own caps
+  like_ratio_cap: 0.6        # never like more than 60% of profiles in a session
+
+pacing:
+  # Seconds spent "looking" at each profile before swiping (random in range).
+  view_seconds: [4, 12]
+  # Take a longer break every N swipes.
+  break_every: [15, 25]
+  break_seconds: [45, 150]
