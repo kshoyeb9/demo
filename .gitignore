@@ -8,6 +8,9 @@ fy_data.json
 # Real FY figures extracted from the financial model — not committed
 fy2526.json
 dashboard.fy2526.html
+fy2526_page.json
+pl_two_year.html
+pl_two_year.publish.html
 assets/
 
 # Derived from index.html by etl_pl.py for Artifact publishing
