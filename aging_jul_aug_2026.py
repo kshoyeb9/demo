@@ -15,13 +15,19 @@ The two sides behave differently and the dashboard says so:
 
 Usage:  python aging_jul_aug_2026.py <AP_Aging.xlsx> <ar_inputs.json> <out.json>
 """
-import json, sys
+import json, re, sys
 
 import openpyxl
 
 M = 1_000_000.0
 MONTHS = ["Jul-26", "Aug-26"]
-TOP_N = 10
+TOP_N = 7          # named counterparties charted; the rest become one bar
+
+# Rows in the receivables schedule that are not a single counterparty: an
+# aggregate of small customers, and a credit not applied to anyone. Neither can
+# be ranked against a named counterparty, so both go straight to the last bar.
+AGG_RE = re.compile(r"^Other customers \((\d+)", re.I)
+CREDIT_RE = re.compile(r"^Unapplied credit", re.I)
 
 AP_BUCKETS = ["Current", "1–30 days", "31–60 days", "61–90 days", "90+ days"]
 
@@ -69,6 +75,7 @@ def main(xlsx, ar_inputs, out="aging_2026.json"):
         if abs(total - stated[mon]) > 1.0:
             sys.exit(f"{mon}: vendor rows sum to {total:,.2f} but the workbook's "
                      f"Total reads {stated[mon]:,.2f}.")
+        ap_tot_m = round(total / M, 4)
         buckets = [sum(v[i] for _, v in rows) for i in range(5)]
         if abs(sum(buckets) - total) > 1.0:
             sys.exit(f"{mon}: the ageing buckets do not sum to the vendor total.")
@@ -83,6 +90,8 @@ def main(xlsx, ar_inputs, out="aging_2026.json"):
         if rest:
             ap_vendor.append({"vendor": f"Other vendors ({len(rest)})",
                               "amount": round(sum(v[5] for _, v in rest) / M, 4)})
+        if abs(sum(x["amount"] for x in ap_vendor) - ap_tot_m) > 0.01:
+            sys.exit(f"{mon}: the vendor bars do not sum to the subledger total.")
 
         ar_ag = [{"bucket": b, "amount": a} for b, a in AR_AGING[mon]]
         ar_tot = round(sum(x["amount"] for x in ar_ag), 4)
@@ -92,13 +101,35 @@ def main(xlsx, ar_inputs, out="aging_2026.json"):
             sys.exit(f"{mon}: the AR ageing sums to {ar_tot:,.4f}M but receivables "
                      f"on the balance sheet are {BS[mon]['ar']:,.4f}M.")
 
-        ar_con = [{"contract": c, "amount": a} for c, a in AR_CONTRACT[mon]]
+        # Rank the named counterparties only, chart the top seven, and fold
+        # everything else — the remaining names, the small-customer aggregate
+        # and the unapplied credit — into one bar, so the chart stays at eight
+        # bars and still sums to the receivables balance.
+        named, agg_amt, agg_n, credit = [], 0.0, 0, 0.0
+        for c, a in AR_CONTRACT[mon]:
+            m_agg = AGG_RE.match(c)
+            if m_agg:
+                agg_amt += a
+                agg_n += int(m_agg.group(1))
+            elif CREDIT_RE.match(c):
+                credit += a
+            else:
+                named.append((c, a))
+        named.sort(key=lambda x: -x[1])
+        top, rest = named[:TOP_N], named[TOP_N:]
+        ar_con = [{"contract": c, "amount": round(a, 4)} for c, a in top]
+        other_amt = sum(a for _, a in rest) + agg_amt + credit
+        other_n = len(rest) + agg_n
+        if other_n or credit:
+            ar_con.append({"contract": f"Other customers ({other_n})"
+                                       + (", net of credit" if credit else ""),
+                           "amount": round(other_amt, 4)})
         con_tot = round(sum(x["amount"] for x in ar_con), 4)
         if abs(con_tot - BS[mon]["ar"]) > 0.02:
             sys.exit(f"{mon}: AR by contract sums to {con_tot:,.4f}M against "
                      f"{BS[mon]['ar']:,.4f}M on the balance sheet.")
 
-        ap_tot = round(total / M, 4)
+        ap_tot = ap_tot_m
         by_month[mon] = {
             "ar_aging": ar_ag, "ar_aging_total": ar_tot,
             "ar_by_contract": ar_con, "ar_by_contract_total": con_tot,
@@ -110,10 +141,10 @@ def main(xlsx, ar_inputs, out="aging_2026.json"):
         }
         print(f"  {mon}")
         print(f"    AR ageing     ${ar_tot:,.4f}M  ties to the balance sheet")
-        print(f"    AR contracts  ${con_tot:,.4f}M  across {len(ar_con)} counterparties")
+        print(f"    AR contracts  ${con_tot:,.4f}M  \u2192 {len(ar_con)} bars")
         print(f"    AP subledger  ${ap_tot:,.4f}M  vs ${BS[mon]['ap']:,.4f}M on the "
               f"balance sheet — ${BS[mon]['ap']-ap_tot:,.4f}M outside it")
-        print(f"    AP vendors    {len(vendors)} rows, top {TOP_N} shown")
+        print(f"    AP vendors    {len(vendors)} rows \u2192 top {TOP_N} + other")
 
     with open(out, "w") as f:
         json.dump({"months": MONTHS, "by_month": by_month}, f,
