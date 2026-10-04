@@ -17,14 +17,19 @@ Usage:
     python make_template.py [--out noon_dashboard_input.xlsx]
 """
 
-import argparse
+import argparse, json
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter as CL
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--out", default="noon_dashboard_input.xlsx")
+ap.add_argument("--model", help="fy2526.json from model_fy2526.py. Builds the workbook on the "
+                               "fiscal year in that file, with real figures, instead of the "
+                               "calendar-year dummy data.")
 args = ap.parse_args()
+
+MODEL = json.load(open(args.model)) if args.model else None
 
 SHEET = "Dashboard Input"
 
@@ -44,11 +49,27 @@ FMT_MS  = '+$#,##0.00;-$#,##0.00;-'
 FMT_PCT = '0.0%'
 FMT_NUM = '#,##0.0'
 
-MONTHS   = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-YR       = "26"
-ACTIVE   = 6          # June — the last closed month in this build
-CUR_FY   = "FY25/26"  # column headings on the BU P&L table
-PRI_FY   = "FY24/25"
+if MODEL:
+    # A fiscal year spans two calendar years, so each row carries its own
+    # label ('Jul-25' … 'Jun-26') rather than one shared year suffix.
+    MLAB     = MODEL["months"]
+    MONTHS   = [m.split("-")[0] for m in MLAB]
+    ACTIVE   = MODEL["active"]
+    CUR_FY   = MODEL["fy"]["cur_short"]
+    PRI_FY   = MODEL["fy"]["pri_short"]
+    # The model holds no FY25/26 budget, so the comparator is the prior year.
+    BGT      = PRI_FY
+    # Charts label every month with its year, since the year changes mid-table.
+    SHORT    = list(MLAB)
+else:
+    MONTHS   = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+    YR       = "26"
+    MLAB     = [f"{m}-{YR}" for m in MONTHS]
+    ACTIVE   = 6          # June — the last closed month in this build
+    CUR_FY   = "FY25/26"  # column headings on the BU P&L table
+    PRI_FY   = "FY24/25"
+    BGT      = "Budget"
+    SHORT    = list(MONTHS)
 NM       = len(MONTHS)
 C0, C1   = 2, 1 + NM  # month columns B..M
 LAST_COL = C1 + 1
@@ -216,15 +237,32 @@ r = 1
 bar(ws, r, "  SECTION 1 — SETUP"); r += 1
 note(ws, r, "Set the active month first: everything in the workbook rolls up to it and stops."); r += 1
 headers(ws, r, ["Setting", "Value", "Notes"], merges={2: 4}); r += 1
-SETTINGS = [
-    ("Period label (month)",    "June 2026",    "Text only — the latest closed month"),
-    ("YTD label",               "Jan–Jun 2026", "Text only — range covered year-to-date"),
-    ("Reporting year",          "2026",         "Calendar year of the current period"),
-    ("Fiscal year label",       "FY2025/26",    "Shown next to quarter labels"),
-    ("Fiscal year start month", 7,              "1 = January … 7 = July"),
-    ("Currency label",          "USD M",        "Displayed under chart titles"),
-    ("Active month number",     ACTIVE,         "1 = Jan … 12 = Dec. THE control: every roll-up stops here."),
-]
+if MODEL:
+    _last, _first = MLAB[ACTIVE-1], MLAB[0]
+    SETTINGS = [
+        ("Period label (month)",    _last,                 "Text only — the latest closed month"),
+        ("YTD label",               f"{_first}–{_last}",   "Text only — range covered year-to-date"),
+        ("Reporting year",          MODEL["fy"]["cur"],    "The fiscal year of the current period"),
+        ("Fiscal year label",       MODEL["fy"]["cur"],    "Shown next to quarter labels"),
+        ("Fiscal year start month", 7,                     "1 = January … 7 = July"),
+        ("Currency label",          "USD M",               "Displayed under chart titles"),
+        ("Comparator label",        BGT,                   "What the 'Budget' columns hold. "
+                                                           "The model carries no FY25/26 budget, so "
+                                                           "they hold prior-year actuals."),
+        ("Active month number",     ACTIVE,                f"1 = {MLAB[0]} … {NM} = {MLAB[-1]}. "
+                                                           "THE control: every roll-up stops here."),
+    ]
+else:
+    SETTINGS = [
+        ("Period label (month)",    "June 2026",    "Text only — the latest closed month"),
+        ("YTD label",               "Jan–Jun 2026", "Text only — range covered year-to-date"),
+        ("Reporting year",          "2026",         "Calendar year of the current period"),
+        ("Fiscal year label",       "FY2025/26",    "Shown next to quarter labels"),
+        ("Fiscal year start month", 7,              "1 = January … 7 = July"),
+        ("Currency label",          "USD M",        "Displayed under chart titles"),
+        ("Comparator label",        BGT,            "What the 'Budget' columns hold."),
+        ("Active month number",     ACTIVE,         "1 = Jan … 12 = Dec. THE control: every roll-up stops here."),
+    ]
 setting_row = {}
 for k, v, n in SETTINGS:
     setting_row[k] = r
@@ -237,9 +275,9 @@ r += 1
 
 note(ws, r, "The twelve months of the reporting year, in order."); r += 1
 headers(ws, r, ["Setup Month", "Short label"]); r += 1
-for m in MONTHS:
-    put(ws, r, 1, f"{m}-{YR}", kind="input")
-    put(ws, r, 2, m, kind="input")
+for full, short in zip(MLAB, SHORT):
+    put(ws, r, 1, full,  kind="input")
+    put(ws, r, 2, short, kind="input")
     r += 1
 r += 1
 
@@ -266,37 +304,50 @@ def col_sum_to_active(col_letter, first, last):
 
 
 # ── 5 · MONTHLY GRIDS (built first — sections 2 and 3 point at them) ──────────
-REVENUE = ["Tracks", "B2B", "Govt Schools — Legacy", "Govt Schools — New", "Out of School"]
-COSTS   = ["Direct costs", "Marketing", "BU salaries", "Noon HQ", "Other operating expenses"]
+if MODEL:
+    REVENUE  = list(MODEL["revenue"]["cur"])
+    COSTS    = list(MODEL["costs"]["cur"])
+    REV_ACT  = MODEL["revenue"]["cur"]
+    REV_BGT  = MODEL["revenue"]["pri"]
+    COST_ACT = MODEL["costs"]["cur"]
+    COST_BGT = MODEL["costs"]["pri"]
 
-REV_ACT = {  # Jan–Jun actual; Jul–Dec blank
+REVENUE_D = ["Tracks", "B2B", "Govt Schools — Legacy", "Govt Schools — New", "Out of School"]
+COSTS_D   = ["Direct costs", "Marketing", "BU salaries", "Noon HQ", "Other operating expenses"]
+
+REV_ACT_D = {  # Jan–Jun actual; Jul–Dec blank
     "Tracks":                [0.876,0.904,0.960,0.932,0.988,0.990],
     "B2B":                   [0.566,0.584,0.620,0.602,0.638,0.630],
     "Govt Schools — Legacy":  [0.461,0.475,0.505,0.490,0.519,0.520],
     "Govt Schools — New":     [0.216,0.223,0.237,0.230,0.244,0.260],
     "Out of School":         [0.109,0.113,0.120,0.116,0.123,0.100],
 }
-REV_BGT = {  # all twelve months
+REV_BGT_D = {  # all twelve months
     "Tracks":                [0.959,0.989,1.051,1.020,1.081,1.070,1.085,1.100,1.120,1.140,1.160,1.180],
     "B2B":                   [0.581,0.600,0.637,0.618,0.655,0.630,0.645,0.660,0.675,0.690,0.705,0.720],
     "Govt Schools — Legacy":  [0.496,0.512,0.544,0.528,0.560,0.560,0.565,0.570,0.575,0.580,0.585,0.590],
     "Govt Schools — New":     [0.239,0.246,0.262,0.254,0.269,0.290,0.300,0.310,0.320,0.330,0.340,0.350],
     "Out of School":         [0.094,0.097,0.103,0.100,0.106,0.100,0.105,0.110,0.115,0.120,0.125,0.130],
 }
-COST_ACT = {
+COST_ACT_D = {
     "Direct costs":             [0.784,0.809,0.859,0.834,0.884,0.890],
     "Marketing":                [0.107,0.111,0.117,0.114,0.121,0.100],
     "BU salaries":              [0.600,0.619,0.657,0.638,0.676,0.680],
     "Noon HQ":                  [0.182,0.188,0.200,0.194,0.206,0.210],
     "Other operating expenses": [0.216,0.223,0.237,0.230,0.244,0.260],
 }
-COST_BGT = {
+COST_BGT_D = {
     "Direct costs":             [0.820,0.846,0.898,0.872,0.924,0.920,0.930,0.940,0.950,0.960,0.970,0.980],
     "Marketing":                [0.130,0.134,0.142,0.138,0.146,0.130,0.135,0.140,0.145,0.150,0.155,0.160],
     "BU salaries":              [0.609,0.629,0.667,0.648,0.687,0.700,0.710,0.720,0.730,0.740,0.750,0.760],
     "Noon HQ":                  [0.188,0.194,0.206,0.200,0.212,0.200,0.205,0.210,0.215,0.220,0.225,0.230],
     "Other operating expenses": [0.220,0.227,0.241,0.234,0.248,0.240,0.245,0.250,0.255,0.260,0.265,0.270],
 }
+
+if not MODEL:
+    REVENUE, COSTS = REVENUE_D, COSTS_D
+    REV_ACT,  REV_BGT  = REV_ACT_D,  REV_BGT_D
+    COST_ACT, COST_BGT = COST_ACT_D, COST_BGT_D
 
 monthly_start = r
 bar(ws, r, "  SECTION 6 — MONTHLY ACTUAL & BUDGET  (USD M)"); r += 1
@@ -363,39 +414,72 @@ note(ws, r, "Pulls from Sections 2 and 3. Nothing to enter.", width=7); r += 1
 headers(ws, r, ["P&L Line"] + AVB + ["Type", "Is a cost?"]); r += 1
 
 def src(row): return tuple(f"={CL(c)}{row}" for c in range(2, 6))
-PL = [
-    ("Revenue",                  *src(rev_total_row),              "Value", "No"),
-    ("Direct costs",             *src(COST_ROW["Direct costs"]),   "Value", "Yes"),
-    ("Gross profit",             None,None,None,None,              "Value", "No"),
-    ("Marketing expense",        *src(COST_ROW["Marketing"]),      "Value", "Yes"),
-    ("Contribution profit",      None,None,None,None,              "Value", "No"),
-    ("BU salaries",              *src(COST_ROW["BU salaries"]),    "Value", "Yes"),
-    ("Noon HQ",                  *src(COST_ROW["Noon HQ"]),        "Value", "Yes"),
-    ("Other operating expenses", *src(COST_ROW["Other operating expenses"]), "Value", "Yes"),
-    ("EBITDA",                   None,None,None,None,              "Value", "No"),
-]
+
+# Each line is either a figure pulled from Section 2/3 (the second item names
+# the source) or a subtotal (base line, then the lines subtracted from it).
+if MODEL:
+    PL_SPEC = [
+        ("Revenue",             "revenue"),
+        ("Cost of sales",       "Cost of sales"),
+        ("Gross profit",        ("Revenue",             ["Cost of sales"])),
+        ("Marketing",           "Marketing"),
+        ("Contribution profit", ("Gross profit",        ["Marketing"])),
+        ("Operating expenses",  "Operating expenses"),
+        ("EBITDA",              ("Contribution profit", ["Operating expenses"])),
+        ("D&A",                 "D&A"),
+        ("Finance & tax",       "Finance & tax"),
+        ("Net income",          ("EBITDA",              ["D&A", "Finance & tax"])),
+    ]
+    MARGINS = [("Gross profit margin",  "Gross profit"),
+               ("Contribution margin",  "Contribution profit"),
+               ("EBITDA margin",        "EBITDA"),
+               ("Net income margin",    "Net income")]
+else:
+    PL_SPEC = [
+        ("Revenue",                  "revenue"),
+        ("Direct costs",             "Direct costs"),
+        ("Gross profit",             ("Revenue",             ["Direct costs"])),
+        ("Marketing expense",        "Marketing"),
+        ("Contribution profit",      ("Gross profit",        ["Marketing expense"])),
+        ("BU salaries",              "BU salaries"),
+        ("Noon HQ",                  "Noon HQ"),
+        ("Other operating expenses", "Other operating expenses"),
+        ("EBITDA",                   ("Contribution profit", ["BU salaries", "Noon HQ",
+                                                              "Other operating expenses"])),
+    ]
+    MARGINS = [("Gross profit margin", "Gross profit"),
+               ("Contribution margin", "Contribution profit"),
+               ("EBITDA margin",       "EBITDA")]
+
+SUBTOTAL_NAMES = {n for n, spec in PL_SPEC if isinstance(spec, tuple)}
 pl_row = {}
-for name, b, c_, d, e, kind, cost in PL:
+for name, spec in PL_SPEC:
     pl_row[name] = r
-    sub = name in ("Gross profit", "Contribution profit", "EBITDA")
-    put(ws, r, 1, name, kind="plain", bold=sub)
-    if b is not None:
-        for col, f_ in zip(range(2, 6), (b, c_, d, e)):
+    put(ws, r, 1, name, kind="plain", bold=name in SUBTOTAL_NAMES)
+    if not isinstance(spec, tuple):
+        row = rev_total_row if spec == "revenue" else COST_ROW[spec]
+        for col, f_ in zip(range(2, 6), src(row)):
             put(ws, r, col, f_, kind="calc", fmt=FMT_M)
-    put(ws, r, 6, kind, kind="plain", halign="center")
-    put(ws, r, 7, cost, kind="plain", halign="center")
+    put(ws, r, 6, "Value", kind="plain", halign="center")
+    put(ws, r, 7, "No" if (isinstance(spec, tuple) or spec == "revenue") else "Yes",
+        kind="plain", halign="center")
     r += 1
-gp, cp, eb = pl_row["Gross profit"], pl_row["Contribution profit"], pl_row["EBITDA"]
-rv, dc, mk = pl_row["Revenue"], pl_row["Direct costs"], pl_row["Marketing expense"]
-sl, hq, ot = pl_row["BU salaries"], pl_row["Noon HQ"], pl_row["Other operating expenses"]
-for c in range(2, 6):
-    L = CL(c)
-    put(ws, gp, c, f"={L}{rv}-{L}{dc}",                 kind="total", fmt=FMT_M)
-    put(ws, cp, c, f"={L}{gp}-{L}{mk}",                 kind="total", fmt=FMT_M)
-    put(ws, eb, c, f"={L}{cp}-{L}{sl}-{L}{hq}-{L}{ot}", kind="total", fmt=FMT_M)
+
+# Subtotals are written after every line has a row number, so a subtotal may
+# reference another subtotal above it.
+for name, spec in PL_SPEC:
+    if not isinstance(spec, tuple):
+        continue
+    base, less = spec
+    for c in range(2, 6):
+        L = CL(c)
+        f_ = f"={L}{pl_row[base]}" + "".join(f"-{L}{pl_row[x]}" for x in less)
+        put(ws, pl_row[name], c, f_, kind="total", fmt=FMT_M)
+rv = pl_row["Revenue"]
 r += 1
 headers(ws, r, ["Margin"] + AVB); r += 1
-for label, num in (("Gross profit margin", gp), ("Contribution margin", cp), ("EBITDA margin", eb)):
+for label, line in MARGINS:
+    num = pl_row[line]
     put(ws, r, 1, label, kind="plain")
     for c in range(2, 6):
         L = CL(c)
@@ -408,7 +492,7 @@ bar(ws, r, "  SECTION 5 — P&L BY BUSINESS UNIT  (USD M, year to date)", width=
 note(ws, r, "Same units as Sections 2 and 3. Revenue this year is pulled from Section 2; enter "
             "cost of sales and marketing. Gross profit, contribution and margins are calculated.", width=7); r += 1
 note(ws, r, "Costs POSITIVE. Leave the prior year blank where the unit did not trade. Cost of sales "
-            "should allocate Direct costs; marketing should allocate the Marketing line.", width=7); r += 1
+            f"should allocate {COSTS[0]}; marketing should allocate the {COSTS[1]} line.", width=7); r += 1
 headers(ws, r, ["Business Unit (P&L)",
                 f"Revenue {CUR_FY}", f"Cost of sales {CUR_FY}", f"Marketing {CUR_FY}",
                 f"Revenue {PRI_FY}", f"Cost of sales {PRI_FY}", f"Marketing {PRI_FY}"]); r += 1
@@ -416,14 +500,22 @@ headers(ws, r, ["Business Unit (P&L)",
 # Current-year revenue is not retyped — it points at Section 2's Actual YTD.
 # Cost of sales allocates Section 3's Direct costs; marketing allocates its
 # Marketing line. Prior year has no monthly grid, so all three are entered.
-BU_PL = [
-    # name,                     cos_cur, mkt_cur,   rev_pri, cos_pri, mkt_pri
-    ("Tracks",                  2.20, 0.30,         3.20, 1.45, 0.22),
-    ("Govt Schools — Legacy",    1.16, 0.12,         3.35, 1.35, 0.14),
-    ("Govt Schools — New",       0.65, 0.10,         None, None, None),
-    ("B2B",                     0.98, 0.09,         4.10, 1.15, 0.10),
-    ("Out of School",           0.07, 0.06,         0.37, 0.04, 0.01),
-]
+if MODEL:
+    def _n(x):
+        # A unit that did not trade is left blank, not zero.
+        return None if x in (None, 0) else x
+    BU_PL = [(b["name"], _n(b["cur"]["cos"]), _n(b["cur"]["mkt"]),
+              _n(b["pri"]["rev"]), _n(b["pri"]["cos"]), _n(b["pri"]["mkt"]))
+             for b in MODEL["bu_pl"]]
+else:
+    BU_PL = [
+        # name,                     cos_cur, mkt_cur,   rev_pri, cos_pri, mkt_pri
+        ("Tracks",                  2.20, 0.30,         3.20, 1.45, 0.22),
+        ("Govt Schools — Legacy",    1.16, 0.12,         3.35, 1.35, 0.14),
+        ("Govt Schools — New",       0.65, 0.10,         None, None, None),
+        ("B2B",                     0.98, 0.09,         4.10, 1.15, 0.10),
+        ("Out of School",           0.07, 0.06,         0.37, 0.04, 0.01),
+    ]
 bupl_first = r
 for name, cos_c, mkt_c, rev_p, cos_p, mkt_p in BU_PL:
     put(ws, r, 1, name, kind="plain")
@@ -447,12 +539,16 @@ bar(ws, r, "  SECTION 7 — WORKING CAPITAL  (USD M)", width=8); r += 1
 note(ws, r, "Closing balances. Payables and deferred revenue are NEGATIVE. Blank beyond the active month.", width=8); r += 1
 headers(ws, r, ["WC Month","Receivables","Payables","Deferred revenue","Other WC",
                 "Net WC","Movement","Forecast?"]); r += 1
-WC = [(5.9,-2.9,-2.4,0.5),(6.1,-2.8,-2.3,0.5),(6.3,-2.7,-2.2,0.6),
-      (6.4,-2.9,-2.2,0.5),(6.6,-2.8,-2.1,0.6),(6.7,-2.7,-2.1,0.6)]
+if MODEL:
+    _w = MODEL["working_capital"]
+    WC = list(zip(_w["receivables"], _w["payables"], _w["deferred_revenue"], _w["other"]))
+else:
+    WC = [(5.9,-2.9,-2.4,0.5),(6.1,-2.8,-2.3,0.5),(6.3,-2.7,-2.2,0.6),
+          (6.4,-2.9,-2.2,0.5),(6.6,-2.8,-2.1,0.6),(6.7,-2.7,-2.1,0.6)]
 wc_first = r
 for i, m in enumerate(MONTHS):
     vals = WC[i] if i < len(WC) else (None,)*4
-    put(ws, r, 1, f"{m}-{YR}", kind="input")
+    put(ws, r, 1, MLAB[i], kind="input")
     for j, v in enumerate(vals): put(ws, r, C0+j, v, kind="input", fmt=FMT_M)
     put(ws, r, 6, f"=IF(COUNT(B{r}:E{r})=0,\"\",SUM(B{r}:E{r}))", kind="calc", fmt=FMT_M)
     put(ws, r, 7, 0 if i == 0 else f'=IF(OR(F{r}="",F{r-1}=""),"",F{r}-F{r-1})', kind="calc", fmt=FMT_MS)
@@ -461,8 +557,8 @@ for i, m in enumerate(MONTHS):
 wc_last = r-1
 r += 1
 
-note(ws, r, "Opening is 1 January; period end rolls up to the active month.", width=5); r += 1
-headers(ws, r, ["WC Item","At 1 Jan","At period end","Movement","Cash impact"]); r += 1
+note(ws, r, f"Opening is the start of {MLAB[0]}; period end rolls up to the active month.", width=5); r += 1
+headers(ws, r, ["WC Item",f"At {MLAB[0]}","At period end","Movement","Cash impact"]); r += 1
 wy_first = r
 for i, item in enumerate(["Accounts receivable","Accounts payable","Deferred revenue","Other working capital items"]):
     put(ws, r, 1, item, kind="plain")
@@ -483,12 +579,18 @@ r += 2
 bar(ws, r, "  SECTION 8 — ACCOUNTS RECEIVABLE  (USD M)", width=6); r += 1
 note(ws, r, "Enter invoiced and collected. Opening chains from the prior month; closing and rate calculate.", width=6); r += 1
 headers(ws, r, ["AR Month","Opening AR","Invoiced","Collected","Closing AR","Collection rate"]); r += 1
-AR = [(2.30,2.10),(2.25,2.05),(2.55,2.35),(2.40,2.30),(2.35,2.15),(2.50,2.40)]
+if MODEL:
+    _a = MODEL["ar"]
+    AR = list(zip(_a["invoiced"], _a["collections"]))
+    AR_OPEN = _a["opening"][0]
+else:
+    AR = [(2.30,2.10),(2.25,2.05),(2.55,2.35),(2.40,2.30),(2.35,2.15),(2.50,2.40)]
+    AR_OPEN = 5.70
 ar_first = r
 for i, m in enumerate(MONTHS):
     inv, coll = AR[i] if i < len(AR) else (None, None)
-    put(ws, r, 1, f"{m}-{YR}", kind="input")
-    put(ws, r, 2, 5.70 if i == 0 else f'=IF(E{r-1}="","",E{r-1})',
+    put(ws, r, 1, MLAB[i], kind="input")
+    put(ws, r, 2, AR_OPEN if i == 0 else f'=IF(E{r-1}="","",E{r-1})',
         kind="input" if i == 0 else "calc", fmt=FMT_M)
     put(ws, r, 3, inv,  kind="input", fmt=FMT_M)
     put(ws, r, 4, coll, kind="input", fmt=FMT_M)
@@ -518,24 +620,42 @@ def share_table(r, note_text, hdr, rows_data, total_label, name_kind="plain"):
     put(ws, tot, 3, 1.0, kind="total", fmt=FMT_PCT)
     return tot+2
 
-r = share_table(r, "Balance at the active month, split by age.", "AR Aging Bucket",
-                [("Current — due next 30 days",2.8),("31–60 days",2.0),("60+ days / overdue",1.9)],
+# Ageing and counterparty detail sit in the AR/AP ledgers, not in the financial
+# model, so a workbook built from the model carries the buckets with no amounts
+# rather than carrying figures the model cannot support.
+LEDGER = " Not in the financial model — fill from the AR/AP ledger." if MODEL else ""
+def amt(v): return None if MODEL else v
+
+r = share_table(r, "Balance at the active month, split by age." + LEDGER, "AR Aging Bucket",
+                [("Current — due next 30 days",amt(2.8)),("31–60 days",amt(2.0)),
+                 ("60+ days / overdue",amt(1.9))],
                 "Total AR")
-r = share_table(r, "Largest receivable balances by contract.", "Contract",
-                [("MCIT",2.10),("Takaful",1.50),("Taalum",1.20),
-                 ("Ensan",0.80),("Tracks",0.60),("Other contracts",0.50)],
+r = share_table(r, "Largest receivable balances by contract." + LEDGER, "Contract",
+                [("MCIT",amt(2.10)),("Takaful",amt(1.50)),("Taalum",amt(1.20)),
+                 ("Ensan",amt(0.80)),("Tracks",amt(0.60)),("Other contracts",amt(0.50))],
                 "Total", name_kind="input")
 
 # ── 8 · AP ────────────────────────────────────────────────────────────────────
 bar(ws, r, "  SECTION 9 — ACCOUNTS PAYABLE  (USD M)", width=6); r += 1
 note(ws, r, "Enter purchases, payments and DPO. Opening chains from the prior month.", width=6); r += 1
 headers(ws, r, ["AP Month","Opening AP","Purchases","Payments","Closing AP","DPO (days)"]); r += 1
-AP = [(2.00,2.05,43.5),(1.95,2.05,43.1),(2.00,2.10,40.5),(2.10,1.90,41.4),(1.95,2.05,43.1),(2.05,2.15,39.5)]
+if MODEL:
+    _p = MODEL["ap"]
+    # DPO on the cost base that runs through payables, the same base the
+    # purchases line is built from.
+    def _dpo(i):
+        c, k = _p["closing"][i], _p["purchases"][i]
+        return None if not c or not k else round(c / k * 30.4, 1)
+    AP = [(_p["purchases"][i], _p["payments"][i], _dpo(i)) for i in range(NM)]
+    AP_OPEN = _p["opening"][0]
+else:
+    AP = [(2.00,2.05,43.5),(1.95,2.05,43.1),(2.00,2.10,40.5),(2.10,1.90,41.4),(1.95,2.05,43.1),(2.05,2.15,39.5)]
+    AP_OPEN = 2.95
 ap_first = r
 for i, m in enumerate(MONTHS):
     pur, pay, dpo = AP[i] if i < len(AP) else (None, None, None)
-    put(ws, r, 1, f"{m}-{YR}", kind="input")
-    put(ws, r, 2, 2.95 if i == 0 else f'=IF(E{r-1}="","",E{r-1})',
+    put(ws, r, 1, MLAB[i], kind="input")
+    put(ws, r, 2, AP_OPEN if i == 0 else f'=IF(E{r-1}="","",E{r-1})',
         kind="input" if i == 0 else "calc", fmt=FMT_M)
     put(ws, r, 3, pur, kind="input", fmt=FMT_M)
     put(ws, r, 4, pay, kind="input", fmt=FMT_M)
@@ -552,32 +672,55 @@ put(ws, r, 6, f'=IF({ACT}=0,"",AVERAGE(F{ap_first}:INDEX(F{ap_first}:F{ap_last},
     kind="total", fmt=FMT_NUM)
 r += 2
 
-r = share_table(r, "Balance at the active month, split by age.", "AP Aging Bucket",
-                [("Current — due next 30 days",1.5),("31–60 days",0.8),("60+ days / overdue",0.4)],
+r = share_table(r, "Balance at the active month, split by age." + LEDGER, "AP Aging Bucket",
+                [("Current — due next 30 days",amt(1.5)),("31–60 days",amt(0.8)),
+                 ("60+ days / overdue",amt(0.4))],
                 "Total AP")
-r = share_table(r, "Largest payable balances by vendor.", "Vendor",
-                [("AWS / cloud infrastructure",0.62),("Content production partners",0.48),
-                 ("Facilities & office leases",0.37),("Marketing agencies",0.29),
-                 ("Professional services",0.21),("Other vendors",0.18)],
+r = share_table(r, "Largest payable balances by vendor." + LEDGER, "Vendor",
+                [("AWS / cloud infrastructure",amt(0.62)),("Content production partners",amt(0.48)),
+                 ("Facilities & office leases",amt(0.37)),("Marketing agencies",amt(0.29)),
+                 ("Professional services",amt(0.21)),("Other vendors",amt(0.18))],
                 "Total", name_kind="input")
 
 # ── 9 · MONTHLY CASH FLOW (drives everything in section 10) ──────────────────
 bar(ws, r, "  SECTION 10 — MONTHLY CASH FLOW  (USD M)"); r += 1
-note(ws, r, "Enter every amount POSITIVE. Opening cash is entered once, for January; each later month chains."); r += 1
+note(ws, r, f"Enter every amount POSITIVE. Opening cash is entered once, for {MLAB[0]}; each later month chains."); r += 1
 note(ws, r, "Section 10 — tiles, both bridges, the balance chart and runway — is calculated entirely from this grid."); r += 1
 headers(ws, r, ["Cash Flow Line"] + MONTHS); r += 1
 
-CF_IN  = [("Collections",   [2.10,2.05,2.35,2.30,2.15,2.40]),
-          ("Other inflows", [0.08,0.10,0.12,0.09,0.10,0.10])]
-CF_OUT = [("Operating costs",[1.95,2.00,2.05,2.02,2.00,2.08]),
-          ("Capex",          [0.14,0.15,0.16,0.15,0.15,0.16]),
-          ("Debt service",   [0.15,0.15,0.15,0.15,0.15,0.16]),
-          ("Other outflows", [0.12,0.10,0.15,0.12,0.13,0.42])]
+if MODEL:
+    # The model states cash flow indirectly — one net figure per activity — so
+    # each activity is split by sign and operating payments are backed out of
+    # real collections (payments = collections - net operating cash flow).
+    # 'Other movements' carries the gap between the activity totals and the
+    # balance sheet's cash line (undeposited funds and FX), so the bridge
+    # closes on the balance sheet with nothing invented to make it balance.
+    _c = MODEL["cash"]
+    _coll = MODEL["ar"]["collections"]
+    pos = lambda xs: [None if v is None else round(max(v, 0.0), 4) for v in xs]
+    neg = lambda xs: [None if v is None else round(max(-v, 0.0), 4) for v in xs]
+    CF_IN  = [("Collections",           [None if v is None else round(v, 4) for v in _coll]),
+              ("Financing inflows",     pos(_c["financing"])),
+              ("Other movements in",    pos(_c["residual"]))]
+    CF_OUT = [("Operating payments",    [None if (a is None or b is None) else round(a - b, 4)
+                                         for a, b in zip(_coll, _c["operating"])]),
+              ("Capex",                 neg(_c["investing"])),
+              ("Financing outflows",    neg(_c["financing"])),
+              ("Other movements out",   neg(_c["residual"]))]
+    CF_OPEN = _c["opening"][0]
+else:
+    CF_IN  = [("Collections",   [2.10,2.05,2.35,2.30,2.15,2.40]),
+              ("Other inflows", [0.08,0.10,0.12,0.09,0.10,0.10])]
+    CF_OUT = [("Operating costs",[1.95,2.00,2.05,2.02,2.00,2.08]),
+              ("Capex",          [0.14,0.15,0.16,0.15,0.15,0.16]),
+              ("Debt service",   [0.15,0.15,0.15,0.15,0.15,0.16]),
+              ("Other outflows", [0.12,0.10,0.15,0.12,0.13,0.42])]
+    CF_OPEN = 4.80
 cf_row = {}
 
 put(ws, r, 1, "Opening cash", kind="plain", bold=True)
 for i in range(NM):
-    put(ws, r, C0+i, 4.80 if i == 0 else f'=IF({CL(C0+i-1)}{r+len(CF_IN)+len(CF_OUT)+2}="","",{CL(C0+i-1)}{r+len(CF_IN)+len(CF_OUT)+2})',
+    put(ws, r, C0+i, CF_OPEN if i == 0 else f'=IF({CL(C0+i-1)}{r+len(CF_IN)+len(CF_OUT)+2}="","",{CL(C0+i-1)}{r+len(CF_IN)+len(CF_OUT)+2})',
         kind="input" if i == 0 else "calc", fmt=FMT_M)
 cf_row["Opening cash"] = r; r += 1
 
@@ -619,11 +762,11 @@ nwc_act    = col_at_active("F", wc_first, wc_last)
 ar_act     = col_at_active("E", ar_first, ar_last)
 for name, mv, mn, yv, yn in [
     ("Cash balance",        close_act, "months of runway at the current burn",
-                            close_act, "against the 1 January opening balance"),
+                            close_act, f"against the {MLAB[0]} opening balance"),
     ("Collections",         CFV("Collections"), "collected in the month",
                             CFS("Collections"), "collected year-to-date"),
     ("Net working capital", nwc_act, "net position at the active month",
-                            f"={nwc_act[1:]}-{CL(C0)}{wc_first}", "movement since 1 January"),
+                            f"={nwc_act[1:]}-{CL(C0)}{wc_first}", f"movement since {MLAB[0]}"),
     ("Accounts receivable", ar_act, "closing receivables",
                             ar_act, "closing receivables"),
 ]:
@@ -660,14 +803,19 @@ r = bridge(r, "", "Bridge Step (YTD)",   False)
 
 note(ws, r, "Drives the cash balance chart. Prior-year months are typed; this year's roll up from Section 10."); r += 1
 headers(ws, r, ["Cash Month","Closing cash","Forecast?","Illustrative?"]); r += 1
-for m, v in [("Jul-25",5.35),("Aug-25",5.22),("Sep-25",5.10),
-             ("Oct-25",5.02),("Nov-25",4.91),("Dec-25",4.80)]:
+# The months before the reporting year, for context at the left of the chart.
+PRIOR_CASH = MODEL["cash"]["prior"] if MODEL else [
+    ("Jul-25",5.35),("Aug-25",5.22),("Sep-25",5.10),
+    ("Oct-25",5.02),("Nov-25",4.91),("Dec-25",4.80)]
+for m, v in PRIOR_CASH:
     put(ws, r, 1, m, kind="input"); put(ws, r, 2, v, kind="input", fmt=FMT_M)
     put(ws, r, 3, "No", kind="input", halign="center")
-    put(ws, r, 4, "Yes" if m != "Dec-25" else "No", kind="input", halign="center")
+    # Real balances from the model are not illustrative; the dummy ones are.
+    put(ws, r, 4, "No" if MODEL else ("Yes" if m != "Dec-25" else "No"),
+        kind="input", halign="center")
     r += 1
 for i, m in enumerate(MONTHS):
-    put(ws, r, 1, f"{m}-{YR}", kind="input")
+    put(ws, r, 1, MLAB[i], kind="input")
     put(ws, r, 2, f"={CL(C0+i)}{cf_row['Closing cash']}", kind="calc", fmt=FMT_M)
     put(ws, r, 3, f'=IF({i+1}>{ACT},"Yes","No")', kind="calc", halign="center")
     put(ws, r, 4, "No", kind="input", halign="center")
@@ -700,14 +848,15 @@ r += 1
 bar(ws, r, "  SECTION 12 — KEY NARRATIVE UPDATES"); r += 1
 note(ws, r, "One row per commentary point, in the order shown on the dashboard."); r += 1
 headers(ws, r, ["Update #","Topic","Commentary"], merges={2: 11}); r += 1
-for i, (topic, text) in enumerate([
+UPDATES = [(u["topic"], u["text"]) for u in MODEL["key_updates"]] if MODEL else [
     ("Revenue","June revenue of $2.50M landed at 94.3% of budget, missing plan in five of the first six months of the year. YTD revenue of $14.35M is $0.90M (5.9%) behind budget."),
     ("Margin","EBITDA of $0.36M gave a 14.4% margin against a 17.4% budget. YTD EBITDA of $2.16M is $0.44M behind plan; the gap is driven by revenue, not cost overrun."),
     ("Costs","Cost control is holding — total costs ran at 97.7% of budget for the month and 96.4% YTD. The underspend has absorbed a meaningful share of the revenue shortfall."),
     ("Collections","The June collection rate of 96.0% is the strongest month of the year so far. AR stands at $6.70M, of which $1.90M (28.4%) is now 60+ days overdue."),
     ("Working capital","Net working capital has absorbed $1.40M of cash since 1 January, almost entirely through the AR build. Payables have been drawn down $0.20M over the same period."),
     ("Cash","Cash closed at $4.08M, down $0.72M since 1 January. At the trailing three-month burn of $0.14M per month that is 29.1 months of runway, before the $1.50M current portion of Facility A."),
-], 1):
+]
+for i, (topic, text) in enumerate(UPDATES, 1):
     put(ws, r, 1, i, kind="plain", halign="center")
     put(ws, r, 2, topic, kind="input")
     put(ws, r, 3, text,  kind="input", span=11, wrap=True)

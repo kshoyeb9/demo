@@ -108,6 +108,9 @@ year        = str(setting("Reporting year", datetime.now().year)).strip()
 fiscal_year = str(setting("Fiscal year label", ""))
 fy_start    = int(num(setting("Fiscal year start month", 7), 7))
 currency    = str(setting("Currency label", "USD M"))
+# What the workbook's "Budget" columns actually hold. Built from the financial
+# model there is no budget for a closed year, so they hold prior-year actuals.
+comparator  = str(setting("Comparator label", "Budget")) or "Budget"
 ACT         = int(num(setting("Active month number", 0), 0))
 
 all_month_rows = read_table("Setup Month", 2)
@@ -124,7 +127,8 @@ NM     = ACT
 meta = {"period": period_full, "ytd_label": ytd_label,
         "generated": datetime.now().strftime("%d %b %Y"), "source": xl_path.name,
         "currency": currency, "months": months, "year": year,
-        "period_index": NM-1, "fy_start_month": fy_start, "fiscal_year": fiscal_year}
+        "period_index": NM-1, "fy_start_month": fy_start, "fiscal_year": fiscal_year,
+        "comparator": comparator}
 
 
 # ══ MONTHLY GRIDS — the source everything else is derived from ════════════════
@@ -199,16 +203,39 @@ def combine(base, minus, label):
                         for i in range(NM)] for k in ("actual","budget")}
     return o
 
+# Subtotals are derived, never read, so the table always adds up. Each rule is
+# (base line, candidate lines to subtract); the candidates cover both cost
+# taxonomies the workbook is built in — the calendar-year template's and the
+# financial model's — and only the ones actually present are used.
+SUBTOTAL_RULES = {
+    "gross profit":        ("Revenue",
+                            ["Cost of sales", "Direct costs"]),
+    "contribution profit": ("Gross profit",
+                            ["Marketing", "Marketing expense"]),
+    "ebitda":              ("Contribution profit",
+                            ["Operating expenses", "BU salaries", "Noon HQ",
+                             "Other operating expenses"]),
+    "net income":          ("EBITDA",
+                            ["D&A", "Finance & tax"]),
+}
+MARGIN_LABELS = [("Gross profit margin",  "Gross profit"),
+                 ("Contribution margin",  "Contribution profit"),
+                 ("EBITDA margin",        "EBITDA"),
+                 ("Net income margin",    "Net income")]
+
 pl, res = [], {}
 for name, is_cost in pl_src:
     ln = name.lower()
-    if ln == "gross profit":
-        e = combine(res["Revenue"], [res["Direct costs"]], name)
-    elif ln == "contribution profit":
-        e = combine(res["Gross profit"], [res["Marketing expense"]], name)
-    elif ln == "ebitda":
-        opex = [res[n] for n in ("BU salaries","Noon HQ","Other operating expenses") if n in res]
-        e = combine(res["Contribution profit"], opex, name)
+    if ln in SUBTOTAL_RULES:
+        base, cands = SUBTOTAL_RULES[ln]
+        if base not in res:
+            sys.exit(f"P&L line '{name}' needs '{base}' above it, which is not in the "
+                     f"P&L summary. Lines found so far: {', '.join(res) or 'none'}.")
+        less = [res[n] for n in cands if n in res]
+        if not less:
+            sys.exit(f"P&L line '{name}' subtracts nothing: none of {', '.join(cands)} "
+                     "is a line in the P&L summary.")
+        e = combine(res[base], less, name)
     else:
         s = resolve_source(name)
         if s is None:
@@ -225,9 +252,7 @@ def margin(label, numer):
         b = (numer[p]["budget"] or 0)/(rev_e[p]["budget"] or 1)
         e[p] = {"actual": rnd(a), "budget": rnd(b), "var": rnd(a-b), "pct": None}
     return e
-for label, srcn in [("Gross profit margin","Gross profit"),
-                    ("Contribution margin","Contribution profit"),
-                    ("EBITDA margin","EBITDA")]:
+for label, srcn in MARGIN_LABELS:
     if srcn in res:
         i = next((k for k,p in enumerate(pl) if p["name"]==srcn), len(pl)-1)
         pl.insert(i+1, margin(label, res[srcn]))
@@ -362,11 +387,21 @@ ap_by_vendor   = [{"vendor": str(r[0]).strip(), "amount": rnd(num(r[1]))}
 # ══ CASH — the whole section is derived from the monthly cash-flow grid ═══════
 cf = {str(r[0]).strip(): [r[1+i] for i in range(NCOL)]
       for r in read_table("Cash Flow Line", 1+NCOL) if r[0]}
-INFLOWS  = ["Collections", "Other inflows"]
-OUTFLOWS = ["Operating costs", "Capex", "Debt service", "Other outflows"]
+# Which lines are inflows and which are outflows is declared by the workbook,
+# in the Type column of the month bridge, rather than hard-coded here — the
+# cash-flow lines differ between the calendar-year template and the ones built
+# from the financial model.
+_bridge = [(str(r[0]).strip(), str(r[1] or "").strip().lower())
+           for r in read_table("Bridge Step (Month)", 4) if r[0]]
+INFLOWS  = [n for n, t in _bridge if t == "inflow"]
+OUTFLOWS = [n for n, t in _bridge if t == "outflow"]
+if not INFLOWS or not OUTFLOWS:
+    sys.exit("The 'Bridge Step (Month)' table in Section 10 declares no inflows or no outflows; "
+             "its Type column should read Opening, Inflow, Outflow or Closing.")
 for need in ["Opening cash"] + INFLOWS + OUTFLOWS:
     if need not in cf:
-        sys.exit(f"Row '{need}' is missing from the 'Cash Flow Line' grid in Section 9.")
+        sys.exit(f"'{need}' is a step in the Section 10 bridge but not a row in the "
+                 f"'Cash Flow Line' grid in Section 9.")
 
 def cfv(name, i): return num(cf[name][i]) if i < len(cf[name]) else 0.0
 

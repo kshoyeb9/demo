@@ -4,6 +4,10 @@ __pycache__/
 *.xlsx
 *.pdf
 fy_data.json
+
+# Real FY figures extracted from the financial model — not committed
+fy2526.json
+dashboard.fy2526.html
 assets/
 
 # Derived from index.html by etl_pl.py for Artifact publishing
