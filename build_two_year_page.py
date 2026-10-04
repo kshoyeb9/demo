@@ -16,9 +16,10 @@ saying 'Budget' everywhere.
 import json, re, sys
 
 
-def main(live, fy_json, out):
+def main(live, fy_json, out, aging_json=None):
     html = open(live, encoding="utf-8").read()
     fy2526 = json.load(open(fy_json))
+    aging = json.load(open(aging_json)) if aging_json else None
 
     # ── 1 · two datasets in place of one ───────────────────────────────────
     m = re.search(r"const DATA = (\{.*?\});\n", html, re.DOTALL)
@@ -30,6 +31,16 @@ def main(live, fy_json, out):
     # label is data rather than hard-coded.
     live_data["meta"].setdefault("comparator", "Budget")
     live_data["meta"].setdefault("closed", False)
+
+    # Ageing and counterparty detail are reported per month, so they are keyed
+    # by month rather than held as one list at a fixed date. The flat keys stay
+    # empty: a month with no schedule should read as not supplied rather than
+    # inherit another month's balances.
+    if aging:
+        live_data["aging_by_month"] = aging["by_month"]
+        for k in ("ar_aging", "ar_by_contract", "ap_aging", "ap_by_vendor"):
+            live_data[k] = []
+        live_data["ar_aging_total"] = live_data["ap_aging_total"] = None
 
     datasets = {fy2526["meta"]["fiscal_year"]: fy2526, live_fy: live_data}
     order = sorted(datasets)                       # oldest year first
@@ -160,6 +171,18 @@ buildSelector();""")
            : `at ${fM(Math.abs(Rw.burn_3m))} monthly burn`,"""),
         ("""+ `<span><i class="mark" style="background:var(--s2)"></i>Budget</span>`;""",
          """+ `<span><i class="mark" style="background:var(--s2)"></i>${esc(CMP)}</span>`;"""),
+    ] + [
+        ("  d.ap_by_vendor.forEach(r=>mul(r,['amount']));\n",
+         "  d.ap_by_vendor.forEach(r=>mul(r,['amount']));\n  Object.values(d.aging_by_month||{}).forEach(g=>{\n    ['ar_aging','ar_by_contract','ap_aging','ap_by_vendor'].forEach(key=>(g[key]||[]).forEach(r=>mul(r,['amount'])));\n    mul(g,['ar_aging_total','ar_by_contract_total','ap_aging_total','ap_unreconciled','ap_balance_sheet']);\n  });\n"),
+        ('          <div class="legend"><span><i style="background:var(--s1)"></i>Current</span><span><i style="background:var(--s2)"></i>31–60 days</span><span><i style="background:var(--s3)"></i>60+ days</span></div>\n          <div class="chart" id="ch-ap-aging"></div>\n        </div>',
+         '          <div class="legend" id="lg-ap-aging"></div>\n          <div class="chart" id="ch-ap-aging"></div>\n          <div class="note" id="ap-aging-note"></div>\n        </div>'),
+        ('<h3>Payments — by vendor</h3>',
+         '<h3>Accounts payable — by vendor</h3>'),
+        ('<div class="legend"><span><i style="background:var(--s3)"></i>Payments made</span></div>\n          <div class="chart" id="ch-ap-vendor"></div>',
+         '<div class="legend"><span><i style="background:var(--s3)"></i>Outstanding balance</span></div>\n          <div class="chart" id="ch-ap-vendor"></div>'),
+    ] + [
+        ("    svg.appendChild(txt(sx(b.amount)+8,y+bh/2+4,fM(b.amount)+(b.share!=null?'  ·  '+fP(b.share,0):''),{class:'lbl'}));",
+         "    /* A negative balance (an unapplied credit) has no bar, and its value\n       would otherwise be drawn left of the axis on top of the category\n       label. Park those labels just inside the axis instead. */\n    svg.appendChild(txt(Math.max(sx(b.amount),padL)+8,y+bh/2+4,fM(b.amount)+(b.share!=null?'  ·  '+fP(b.share,0):''),{class:'lbl'}));"),
     ]
     for a, b in subs:
         if html.count(a) != 1:
@@ -184,6 +207,57 @@ buildSelector();""")
     old = """    : 'Operating expenses are shown as a single line: the financial statements give one operating-expenses figure per business unit, with no split into BU salaries, Noon HQ and other. Supply that split on the Manual Inputs tab of the source workbook and the three lines appear here.';"""
     assert html.count(old) == 1
     html = html.replace(old, """    : 'Operating expenses are shown as a single line: the financial statements give one operating-expenses figure per business unit, with no split into BU salaries, Noon HQ and other. Supply that split on the Manual Inputs tab of the source workbook and the three lines appear here.');""")
+
+    # ── the four ageing panels follow the selected month ──────────────────
+    old_block_start = "  $('#ar-aging-scope').textContent="
+    old_block_end = "else awaiting('#ch-ap-vendor','No vendor-level payment schedule was supplied for the month.');"
+    i = html.index(old_block_start)
+    j = html.index(old_block_end) + len(old_block_end)
+    html = html[:i] + """  /* Ageing and counterparty detail are reported month by month, so they
+     follow the end of the selected period rather than one fixed date. A month
+     with no schedule says so instead of showing a neighbouring month's. */
+  const AGM = D.aging_by_month || {};
+  const AG  = AGM[LBL[R.i1]] || null;
+  const agAt = AG ? LBL[R.i1] : asAt;
+  const arAg  = AG ? AG.ar_aging       : (D.ar_aging       || []);
+  const arCon = AG ? AG.ar_by_contract : (D.ar_by_contract || []);
+  const apAg  = AG ? AG.ap_aging       : (D.ap_aging       || []);
+  const apVen = AG ? AG.ap_by_vendor   : (D.ap_by_vendor   || []);
+
+  const arAgTot = sum(arAg.map(b=>b.amount));
+  $('#ar-aging-scope').textContent = arAg.length ? `as at ${agAt} · total ${fM(arAgTot)}` : 'not yet supplied';
+  if(arAg.length) hbarChart('#ch-ar-aging', arAg.map(b=>({label:b.bucket.replace(' — ',' · '),amount:b.amount,share:b.share})),
+            {frame:'aging', padL:200, colors:['--s1','--s2','--s3'], total:arAgTot});
+  else awaiting('#ch-ar-aging','No receivables aging was supplied for this month.');
+
+  const arcTot = sum(arCon.map(c=>c.amount));
+  $('#ar-contract-scope').textContent = arCon.length ? `as at ${agAt} · total ${fM(arcTot)}` : 'not yet supplied';
+  if(arCon.length) hbarChart('#ch-ar-contract', arCon.map(c=>({label:c.contract,amount:c.amount,share:c.amount/arcTot})),
+            {frame:'aging', padL:200, total:arcTot});
+  else awaiting('#ch-ar-contract','No contract-level receivable schedule was supplied for this month.');
+
+  /* Payables age in five buckets, not three, so the legend is built from the
+     data rather than fixed in the markup. */
+  const AP_COLS = ['--s1','--s4','--s2','--s5','--s3'];
+  const apAgTot = sum(apAg.map(b=>b.amount));
+  $('#lg-ap-aging').innerHTML = apAg.length
+    ? apAg.map((b,i)=>`<span><i style="background:${css(AP_COLS[i%AP_COLS.length])}"></i>${esc(b.bucket)}</span>`).join('')
+    : '';
+  $('#ap-aging-scope').textContent = apAg.length ? `as at ${agAt} · subledger ${fM(apAgTot)}` : 'not yet supplied';
+  if(apAg.length) hbarChart('#ch-ap-aging', apAg.map(b=>({label:b.bucket,amount:b.amount,share:b.share})),
+            {frame:'aging', padL:200, colors:AP_COLS, total:apAgTot});
+  else awaiting('#ch-ap-aging','No payables aging was supplied for this month.');
+  $('#ap-aging-note').textContent = (AG && AG.ap_unreconciled)
+    ? `The vendor subledger totals ${fM(apAgTot)} against ${fM(AG.ap_balance_sheet)} of payables on the `
+      + `balance sheet. The ${fM(AG.ap_unreconciled)} difference is accruals and other payables that do `
+      + `not pass through a vendor account, so the aging covers the subledger only.`
+    : '';
+
+  const venTot = sum(apVen.map(v=>v.amount));
+  $('#ap-vendor-scope').textContent = apVen.length ? `as at ${agAt} · total ${fM(venTot)}` : 'not yet supplied';
+  if(apVen.length) hbarChart('#ch-ap-vendor', apVen.map(v=>({label:v.vendor,amount:v.amount,share:v.amount/venTot})),
+            {frame:'aging', padL:200, color:'--s3', total:venTot});
+  else awaiting('#ch-ap-vendor','No vendor-level payable schedule was supplied for this month.');""" + html[j:]
 
     open(out, "w", encoding="utf-8").write(html)
     print(f"  Years   {', '.join(order)}  (opens on {order[-1]})")

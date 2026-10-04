@@ -11,6 +11,8 @@ dashboard.fy2526.html
 fy2526_page.json
 pl_two_year.html
 pl_two_year.publish.html
+aging_2026.json
+ar_inputs_2026.json
 assets/
 
 # Derived from index.html by etl_pl.py for Artifact publishing
