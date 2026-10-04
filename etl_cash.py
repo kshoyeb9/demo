@@ -35,8 +35,8 @@ except ImportError:
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--file", default="cf_source.xlsx")
-ap.add_argument("--out",  default="cash.html")
-ap.add_argument("--template", default=None)
+ap.add_argument("--out",  default="cash.build.html")
+ap.add_argument("--template", default="cash.html")
 ap.add_argument("--publish-out", default="cash.publish.html")
 ap.add_argument("--weeks", type=int, default=13, help="forecast weeks to show")
 ap.add_argument("--floor", type=float, default=0.75, help="operating cash floor, USD M")
@@ -44,6 +44,11 @@ args = ap.parse_args()
 
 xl, out_path = Path(args.file), Path(args.out)
 tpl = Path(args.template) if args.template else out_path
+# The template is committed and must stay free of figures, so refuse to write
+# the built page over it. This repository is public.
+if tpl.resolve() == out_path.resolve():
+    sys.exit(f"--out would overwrite the template {tpl}. Write the built page "
+             "somewhere else; the template is committed and holds no figures.")
 if not xl.exists():  sys.exit(f"Workbook not found: {xl}")
 if not tpl.exists(): sys.exit(f"Page template not found: {tpl} — run make_cash_page.py first")
 
@@ -269,7 +274,12 @@ DATA = {
     "meta": {"asat": asat.strftime("%d %b %Y"), "generated": datetime.now().strftime("%d %b %Y"),
              "source": xl.name, "currency": "USD M",
              "ledger_from": led[0][0].strftime("%d %b %Y"),
-             "forecast_from": first_fc.strftime("%d %b %Y") if first_fc else fc_cols[0][1].strftime("%d %b %Y")},
+             "forecast_from": first_fc.strftime("%d %b %Y") if first_fc else fc_cols[0][1].strftime("%d %b %Y"),
+             # How much of the intended horizon the workbook actually fills. When
+             # its forecast runs out early the page shortens its own headings and
+             # says why, rather than drawing empty weeks flat.
+             "forecast_to": (fc_cols[-1][1] + timedelta(days=6)).strftime("%d %b %Y"),
+             "weeks_shown": len(fc_cols), "max_horizon": args.weeks},
     "kpi": {"balance": balance, "burn_day": rnd(burn_day,4), "cover_weeks": cover_weeks, "horizon": len(forecast),
             "net_wtd": rnd(net_wtd,4), "receipts_mtd": rnd(rec_mtd,4), "floor": rnd(args.floor,3),
             "trough": trough["closing"], "trough_week": "week of " + trough["week"],
