@@ -287,6 +287,7 @@
         <div class="legend"><span><i class="line" style="background:var(--s1)"></i>Closing balance</span>
           <span><i class="dash" style="color:var(--orange)"></i>Operating floor</span></div>
         <div class="chart" id="ch-bal"></div>
+        <div class="note" id="bal-note"></div>
       </div>
       <div class="grid g2" style="margin-top:16px">
         <div class="card">
@@ -650,7 +651,7 @@ function convertFX(src,k,sym){
     Object.keys(w.vals).forEach(c=>{ w.vals[c]*=k; }); });
   d.inflow_sources.forEach(x=>mul(x,['amount']));
   d.outflow_cats.forEach(x=>mul(x,['amount']));
-  mul(d.kpi,['balance','burn_day','net_wtd','receipts_mtd','floor','trough',
+  mul(d.kpi,['balance','balance_actual','burn_day','net_wtd','receipts_mtd','floor','trough',
              'forecast_in','forecast_out']);
   mul(d.summary,['opening','inflows','outflows','closing']);
   d.waterfall.forEach(w=>mul(w,['value','running']));
@@ -675,10 +676,16 @@ function convertFX(src,k,sym){
 function render(){
   const K=D.kpi, L=D.ledger, W=D.weekly, F=D.forecast;
   $('#m-gen').textContent=M.generated; $('#f-gen').textContent=M.generated;
-  $('#f-src').textContent=M.source;    $('#m-asat').textContent=M.asat;
+  $('#f-src').textContent=M.source;
   $('#m-cur').textContent=`${FX[CUR].unit} millions`;
   $('#cur-rate').textContent = CUR==='USD' ? '' : `converted at 1 USD = ${FX.SAR.rate} SAR`;
-  $('#m-cover').textContent=`Actuals to ${M.asat} · forecast ${M.forecast_from} to ${M.forecast_to||''}`;
+  /* A projected opening is never left to look like a bank balance: the as-at
+     line says so, and the cover line gives the last actual and its figure. */
+  const PROJ = M.position_basis === 'projected';
+  $('#m-asat').textContent = M.asat + (PROJ ? ' · projected' : '');
+  $('#m-cover').textContent = PROJ
+    ? `Actual to ${M.last_actual} (${fM(K.balance_actual,2)}) · horizon ${M.forecast_from} to ${M.forecast_to||''}`
+    : `Actuals to ${M.asat} · forecast ${M.forecast_from} to ${M.forecast_to||''}`;
   const hz=`${F.length}-week`;
   $('#m-horizon').textContent=hz; $('#rail-horizon').textContent=hz+' outlook'; $('#h-horizon').textContent=hz;
   $('#es-scope').textContent=`as at ${M.asat}`;
@@ -686,15 +693,17 @@ function render(){
 
   const inflow = K.burn_day>=0;
   $('#tiles').innerHTML =
-    tile('Cash balance', fM(K.balance,2), `as at ${M.asat}`,
+    tile('Cash balance', fM(K.balance,2),
+         PROJ ? `projected at ${M.asat} · actual ${fM(K.balance_actual,2)} at ${M.last_actual}`
+              : `as at ${M.asat}`,
          chip(K.net_wtd>=0?'good':'bad',
-              `${K.net_wtd>=0?'▲':'▼'} ${fMs(K.net_wtd,2)} last 7 days`), K.net_wtd<0) +
+              `${K.net_wtd>=0?'▲':'▼'} ${fMs(K.net_wtd,2)} last 7 actual days`), K.net_wtd<0) +
     tile('Weeks of cover', K.cover_weeks==null?`${K.horizon}+`:`${K.cover_weeks}`,
          K.cover_weeks==null?`clears the floor all ${K.horizon} weeks`:`before the floor is breached`,
          chip(K.cover_weeks==null?'good':'bad',
               K.cover_weeks==null?`▲ no breach forecast`:`▼ breaches in week ${K.cover_weeks}`),
          K.cover_weeks!=null) +
-    tile('Daily burn', fMs(K.burn_day,3), `20-day average`,
+    tile('Daily burn', fMs(K.burn_day,3), PROJ?`20 actual days to ${M.last_actual}`:`20-day average`,
          chip(inflow?'good':'bad', inflow?'▲ net inflow':'▼ net outflow'), !inflow) +
     tile('Forecast low', fM(K.trough,2), K.trough_week||'—',
          chip(K.trough<=K.floor?'bad':'good',
@@ -710,7 +719,9 @@ function render(){
   $('#led-scope').textContent=`${UNIT()} · ${L.labels.length} days to ${M.asat}`;
   $('#bal-scope').textContent=`${UNIT()} · closing · floor ${fM(K.floor,2)}`;
   lineChart('#ch-bal', L.sparse, [{name:'Closing balance', values:L.balance, color:'--s1', area:true}],
-            {yFmt:v=>SY()+f2(v)+'M', minZero:false, frame:'full', floor:K.floor});
+            {yFmt:v=>SY()+f2(v)+'M', minZero:false, frame:'full', floor:K.floor,
+             forecastFrom: (L.forecast_from_index!=null && L.forecast_from_index<L.balance.length)
+                           ? L.forecast_from_index : null});
   $('#rp-scope').textContent=`${UNIT()} · last ${W.recent.length} weeks`;
   columnChart('#ch-rp', W.recent, [
     {name:'Receipts', values:W.receipts, color:'--s1'},
@@ -723,7 +734,8 @@ function render(){
   const S=D.summary, WF=D.waterfall;
   $('#sum-when').textContent=`${M.forecast_from} · ${F.length} weeks`;
   $('#sum-tiles').innerHTML =
-    tile('Opening balance', fM(S.opening,2), `at ${M.asat}`, chip('flat','last actual day')) +
+    tile('Opening balance', fM(S.opening,2), `at ${M.asat}`,
+         chip(PROJ?'bad':'flat', PROJ?'● projected, not actual':'last actual day'), PROJ) +
     tile('Total inflows',   fM(S.inflows,2), `expected receipts`,
          chip('good', `▲ across ${F.length} weeks`)) +
     tile('Total outflows',  fM(S.outflows,2), `expected payments`,
@@ -734,6 +746,11 @@ function render(){
          S.closing<S.opening);
   $('#wf-scope').textContent=`${UNIT()} · ${M.forecast_from} to ${F[F.length-1].week}`;
   waterfall('#ch-wf', WF);
+  $('#bal-note').textContent = PROJ
+    ? `The bank position is actual to ${M.last_actual}. The ${M.asat} figure adds `
+      + `${(L.balance.length-L.forecast_from_index)} days of forecast receipts and payments to it, `
+      + `so it is a roll-forward and not a confirmed balance.`
+    : '';
   $('#wf-note').textContent =
     `Expected inflows of ${fM(S.inflows,2)} fall ${fM(Math.abs(S.outflows-S.inflows),2)} `
     + (S.outflows>S.inflows ? 'short of' : 'above')
