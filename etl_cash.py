@@ -132,9 +132,6 @@ if args.asat:
         asat = datetime.strptime(args.asat, "%Y-%m-%d").date()
     except ValueError:
         sys.exit(f"--asat must be YYYY-MM-DD, not {args.asat!r}")
-    if asat < last_actual:
-        sys.exit(f"--asat {asat:%d %b %Y} is before the last actual day "
-                 f"({last_actual:%d %b %Y}); it can only move forward.")
     if asat > max(d for _, d, _ in dcols):
         sys.exit(f"--asat {asat:%d %b %Y} is past the end of 'Daily CF'.")
 projected = asat > last_actual
@@ -145,13 +142,14 @@ first_fc = next((d for c, d, t in dcols if t == "forecast" and d > last_actual),
 # Actual days always, then the forecast days needed to reach the reporting
 # date. The chart marks where the actuals stop rather than drawing one
 # unbroken line, so a projected opening is never read as a bank balance.
-fwd_days = [(c, d) for c, d, t in dcols if last_actual < d <= asat] if projected else []
-fwd_days.sort(key=lambda x: x[1])
-led = [(d, val(day, R_IN, c)/M, val(day, R_OUT, c)/M) for c, d in actual_days]
-led.sort(key=lambda x: x[0])
+act_days = sorted([(c, d) for c, d in actual_days if d <= asat], key=lambda x: x[1])
+if not act_days:
+    sys.exit(f"--asat {asat:%d %b %Y} is before the first actual day.")
+fwd_days = sorted([(c, d) for c, d, t in dcols if last_actual < d <= asat], key=lambda x: x[1])
+led = [(d, val(day, R_IN, c)/M, val(day, R_OUT, c)/M) for c, d in act_days]
 n_actual = len(led)
 led += [(d, val(day, R_IN, c)/M, val(day, R_OUT, c)/M) for c, d in fwd_days]
-opening = val(day, R_BEGIN, actual_days[0][0]) / M
+opening = val(day, R_BEGIN, act_days[0][0]) / M
 net = [r - p for _, r, p in led]
 bal, run = [], opening
 for n in net:
@@ -177,34 +175,53 @@ weekly = {"recent":   [d.strftime("%d %b") for _, d in wk_act],
 # so weeks are kept by their end date once --asat is given. Without it the rule
 # is unchanged: every week beginning after the last actual day.
 fc_cols = ([(c, d) for c, d, _ in wcols if d + timedelta(days=6) >= asat]
-           if projected else
-           [(c, d) for c, d, _ in wcols if d > asat])[:args.weeks]
+            if args.asat else
+            [(c, d) for c, d, _ in wcols if d > asat])[:args.weeks]
 if not fc_cols:
     sys.exit(f"No forecast weeks found after {asat:%d %b %Y} in 'Weekly CF (USD)'.")
+
+day_by_date = {d: c for c, d, _ in dcols}
+
+def week_days(start, after=None):
+    """Daily columns in a week, optionally only those past a given date."""
+    return [day_by_date[start + timedelta(days=k)] for k in range(7)
+            if (start + timedelta(days=k)) in day_by_date
+            and (after is None or start + timedelta(days=k) > after)]
+
+def fval(r, c, wstart):
+    """A category's figure for one forecast week.
+
+    The week holding the reporting date is part spent: taking its weekly total
+    would count days that are already in the opening balance, and dropping the
+    week would lose the days that are not. So that one week is rebuilt from the
+    daily sheet, counting only the days after the reporting date. Every later
+    week comes from the weekly column as before."""
+    if wstart <= asat < wstart + timedelta(days=6):
+        return sum(val(day, r, dc) for dc in week_days(wstart, after=asat))
+    return val(wk, r, c)
 
 # Only show categories that actually move over the horizon — carrying columns of
 # zeros pushes Net and Closing, the two that matter, off the side of the table.
 active = {r for r, _, _, _ in CATS
-          if any(abs(val(wk, r, c)) > 0 for c, _ in
-                 [(cc, dd) for cc, dd, _ in wcols if dd > asat][:args.weeks])}
+          if any(abs(fval(r, c, d)) > 0 for c, d in fc_cols)}
 cats_meta = [{"key": f"c{r}", "label": lab, "short": sh, "dir": dr}
              for r, lab, sh, dr in CATS if r in active]
 forecast, proj = [], balance
 for c, d in fc_cols:
-    vals = {f"c{r}": rnd(val(wk, r, c)/M, 3) for r, _, _, _ in CATS if r in active}
-    n = sum(val(wk, r, c) for r, _, _, dr in CATS if dr == "in") / M \
-      - sum(val(wk, r, c) for r, _, _, dr in CATS if dr == "out") / M
+    vals = {f"c{r}": rnd(fval(r, c, d)/M, 3) for r, _, _, _ in CATS if r in active}
+    n = sum(fval(r, c, d) for r, _, _, dr in CATS if dr == "in") / M \
+      - sum(fval(r, c, d) for r, _, _, dr in CATS if dr == "out") / M
     proj += n
     forecast.append({"week": d.strftime("%d %b"), "vals": vals,
                      "net": rnd(n, 3), "closing": rnd(proj, 3)})
 
-fc_in  = sum(val(wk, r, c) for r, _, _, dr in CATS if dr == "in"  for c, _ in fc_cols) / M
-fc_out = sum(val(wk, r, c) for r, _, _, dr in CATS if dr == "out" for c, _ in fc_cols) / M
+fc_in  = sum(fval(r, c, d) for r, _, _, dr in CATS if dr == "in"  for c, d in fc_cols) / M
+fc_out = sum(fval(r, c, d) for r, _, _, dr in CATS if dr == "out" for c, d in fc_cols) / M
 trough = min(forecast, key=lambda w: w["closing"])
 
 # reconcile the chosen category rows against the model's own totals
-model_in  = sum(val(wk, R_IN,  c) for c, _ in fc_cols) / M
-model_out = sum(val(wk, R_OUT, c) for c, _ in fc_cols) / M
+model_in  = sum(fval(R_IN,  c, d) for c, d in fc_cols) / M
+model_out = sum(fval(R_OUT, c, d) for c, d in fc_cols) / M
 
 # ── composition over the horizon ─────────────────────────────────────────────
 def label_of(r):
@@ -213,11 +230,11 @@ def label_of(r):
     t = str(a).strip() if a else (str(b).strip() if b else f"Row {r}")
     return re.sub(r"\s+", " ", t)[:44]
 
-srcs = [(label_of(r), sum(val(wk, r, c) for c, _ in fc_cols)/M) for r in SRC_ROWS]
+srcs = [(label_of(r), sum(fval(r, c, d) for c, d in fc_cols)/M) for r in SRC_ROWS]
 srcs = sorted([(s, a) for s, a in srcs if a > 0], key=lambda x: -x[1])[:8]
 inflow_sources = [{"source": s, "amount": rnd(a, 3)} for s, a in srcs]
 outflow_cats = sorted(
-    [{"cat": lab, "amount": rnd(sum(val(wk, r, c) for c, _ in fc_cols)/M, 3)}
+    [{"cat": lab, "amount": rnd(sum(fval(r, c, d) for c, d in fc_cols)/M, 3)}
      for r, lab, sh, dr in CATS if dr == "out"],
     key=lambda x: -x["amount"])
 
@@ -241,22 +258,16 @@ waterfall.append({"step": "Closing", "kind": "total", "value": forecast[-1]["clo
 
 # Next four weeks, counterparty by counterparty, with expected dates from 'Daily CF'
 NEAR = fc_cols[:4]
-day_by_date = {d: c for c, d, _ in dcols}
-
-def week_days(start):
-    return [day_by_date[start + timedelta(days=k)]
-            for k in range(7) if (start + timedelta(days=k)) in day_by_date]
-
 def detail_rows(direction):
     out = []
     for cat, rng in DETAIL[direction]:
         for r in rng:
             vals, dates = [], []
             for c, wstart in NEAR:
-                v = val(wk, r, c) / M
+                v = fval(r, c, wstart) / M
                 vals.append(rnd(v, 3))
                 if v > 0:
-                    for dc in week_days(wstart):
+                    for dc in week_days(wstart, after=asat if wstart <= asat else None):
                         if abs(val(day, r, dc)) > 0:
                             dates.append(day.cell(row=R_FROM, column=dc).value)
             if sum(vals) > 0:
