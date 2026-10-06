@@ -682,10 +682,13 @@ function render(){
   /* A projected opening is never left to look like a bank balance: the as-at
      line says so, and the cover line gives the last actual and its figure. */
   const PROJ = M.position_basis === 'projected';
-  $('#m-asat').textContent = M.asat + (PROJ ? ' · projected' : '');
+  const OPEN = M.period_start === true;   /* the as-at names the period's first day */
+  $('#m-asat').textContent = M.asat + (PROJ ? ' · projected' : OPEN ? ' · opening' : '');
   $('#m-cover').textContent = PROJ
     ? `Actual to ${M.last_actual} (${fM(K.balance_actual,2)}) · horizon ${M.forecast_from} to ${M.forecast_to||''}`
-    : `Actuals to ${M.asat} · forecast ${M.forecast_from} to ${M.forecast_to||''}`;
+    : OPEN
+      ? `Opening balance = close of ${M.opening_of} · horizon ${M.forecast_from} to ${M.forecast_to||''}`
+      : `Actuals to ${M.asat} · forecast ${M.forecast_from} to ${M.forecast_to||''}`;
   const hz=`${F.length}-week`;
   $('#m-horizon').textContent=hz; $('#rail-horizon').textContent=hz+' outlook'; $('#h-horizon').textContent=hz;
   $('#es-scope').textContent=`as at ${M.asat}`;
@@ -695,7 +698,8 @@ function render(){
   $('#tiles').innerHTML =
     tile('Cash balance', fM(K.balance,2),
          PROJ ? `projected at ${M.asat} · actual ${fM(K.balance_actual,2)} at ${M.last_actual}`
-              : `as at ${M.asat}`,
+              : OPEN ? `opening ${M.asat} · close of ${M.opening_of}`
+                     : `as at ${M.asat}`,
          chip(K.net_wtd>=0?'good':'bad',
               `${K.net_wtd>=0?'▲':'▼'} ${fMs(K.net_wtd,2)} last 7 actual days`), K.net_wtd<0) +
     tile('Weeks of cover', K.cover_weeks==null?`${K.horizon}+`:`${K.cover_weeks}`,
@@ -735,7 +739,8 @@ function render(){
   $('#sum-when').textContent=`${M.forecast_from} · ${F.length} weeks`;
   $('#sum-tiles').innerHTML =
     tile('Opening balance', fM(S.opening,2), `at ${M.asat}`,
-         chip(PROJ?'bad':'flat', PROJ?'● projected, not actual':'last actual day'), PROJ) +
+         chip(PROJ?'bad':'flat',
+              PROJ?'● projected, not actual':OPEN?'start of the period':'last actual day'), PROJ) +
     tile('Total inflows',   fM(S.inflows,2), `expected receipts`,
          chip('good', `▲ across ${F.length} weeks`)) +
     tile('Total outflows',  fM(S.outflows,2), `expected payments`,

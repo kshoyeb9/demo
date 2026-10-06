@@ -134,7 +134,13 @@ if args.asat:
         sys.exit(f"--asat must be YYYY-MM-DD, not {args.asat!r}")
     if asat > max(d for _, d, _ in dcols):
         sys.exit(f"--asat {asat:%d %b %Y} is past the end of 'Daily CF'.")
-projected = asat > last_actual
+# --asat names the first day of the reporting period, so the position is the
+# balance at the START of it: the close of the day before. That is what the
+# workbook's weekly sheet calls the week's beginning balance, and it keeps the
+# whole of the as-at week in the horizon rather than splitting it across the
+# opening figure and the forecast.
+cutoff = asat - timedelta(days=1) if args.asat else asat
+projected = cutoff > last_actual
 
 first_fc = next((d for c, d, t in dcols if t == "forecast" and d > last_actual), None)
 
@@ -142,10 +148,10 @@ first_fc = next((d for c, d, t in dcols if t == "forecast" and d > last_actual),
 # Actual days always, then the forecast days needed to reach the reporting
 # date. The chart marks where the actuals stop rather than drawing one
 # unbroken line, so a projected opening is never read as a bank balance.
-act_days = sorted([(c, d) for c, d in actual_days if d <= asat], key=lambda x: x[1])
+act_days = sorted([(c, d) for c, d in actual_days if d <= cutoff], key=lambda x: x[1])
 if not act_days:
-    sys.exit(f"--asat {asat:%d %b %Y} is before the first actual day.")
-fwd_days = sorted([(c, d) for c, d, t in dcols if last_actual < d <= asat], key=lambda x: x[1])
+    sys.exit(f"--asat {asat:%d %b %Y} leaves no actual days before it.")
+fwd_days = sorted([(c, d) for c, d, t in dcols if last_actual < d <= cutoff], key=lambda x: x[1])
 led = [(d, val(day, R_IN, c)/M, val(day, R_OUT, c)/M) for c, d in act_days]
 n_actual = len(led)
 led += [(d, val(day, R_IN, c)/M, val(day, R_OUT, c)/M) for c, d in fwd_days]
@@ -163,7 +169,7 @@ sparse = [l if (i % step == 0 or i == len(labels)-1) else "" for i, l in enumera
 
 # ── weekly actuals, for the two bar charts ───────────────────────────────────
 wcols = periods(wk)
-wk_act = [(c, d) for c, d, _ in wcols if d <= last_actual and
+wk_act = [(c, d) for c, d, _ in wcols if d + timedelta(days=6) <= cutoff and
           (abs(val(wk, R_IN, c)) + abs(val(wk, R_OUT, c))) > 0][-8:]
 weekly = {"recent":   [d.strftime("%d %b") for _, d in wk_act],
           "receipts": [rnd(val(wk, R_IN,  c)/M, 3) for c, _ in wk_act],
@@ -182,11 +188,11 @@ if not fc_cols:
 
 day_by_date = {d: c for c, d, _ in dcols}
 
-def week_days(start, after=None):
-    """Daily columns in a week, optionally only those past a given date."""
+def week_days(start, from_=None):
+    """Daily columns in a week, optionally only those on or after a date."""
     return [day_by_date[start + timedelta(days=k)] for k in range(7)
             if (start + timedelta(days=k)) in day_by_date
-            and (after is None or start + timedelta(days=k) > after)]
+            and (from_ is None or start + timedelta(days=k) >= from_)]
 
 def fval(r, c, wstart):
     """A category's figure for one forecast week.
@@ -196,8 +202,8 @@ def fval(r, c, wstart):
     week would lose the days that are not. So that one week is rebuilt from the
     daily sheet, counting only the days after the reporting date. Every later
     week comes from the weekly column as before."""
-    if wstart <= asat < wstart + timedelta(days=6):
-        return sum(val(day, r, dc) for dc in week_days(wstart, after=asat))
+    if wstart < asat <= wstart + timedelta(days=6):
+        return sum(val(day, r, dc) for dc in week_days(wstart, from_=asat))
     return val(wk, r, c)
 
 # Only show categories that actually move over the horizon — carrying columns of
@@ -267,7 +273,7 @@ def detail_rows(direction):
                 v = fval(r, c, wstart) / M
                 vals.append(rnd(v, 3))
                 if v > 0:
-                    for dc in week_days(wstart, after=asat if wstart <= asat else None):
+                    for dc in week_days(wstart, from_=asat if wstart < asat else None):
                         if abs(val(day, r, dc)) > 0:
                             dates.append(day.cell(row=R_FROM, column=dc).value)
             if sum(vals) > 0:
@@ -329,7 +335,7 @@ DATA = {
     "meta": {"asat": asat.strftime("%d %b %Y"), "generated": datetime.now().strftime("%d %b %Y"),
              "source": xl.name, "currency": "USD M",
              "ledger_from": led[0][0].strftime("%d %b %Y"),
-             "forecast_from": (fc_cols[0][1] if projected else (first_fc or fc_cols[0][1]))
+             "forecast_from": (fc_cols[0][1] if args.asat else (first_fc or fc_cols[0][1]))
                               .strftime("%d %b %Y"),
              # How much of the intended horizon the workbook actually fills. When
              # its forecast runs out early the page shortens its own headings and
@@ -339,6 +345,8 @@ DATA = {
              # Whether the headline position is a bank balance or a roll-forward.
              "position_basis": "projected" if projected else "actual",
              "last_actual": last_actual.strftime("%d %b %Y"),
+             "opening_of": cutoff.strftime("%d %b %Y"),
+             "period_start": bool(args.asat),
              "balance_actual": balance_actual},
     "kpi": {"balance": balance, "burn_day": rnd(burn_day,4), "cover_weeks": cover_weeks, "horizon": len(forecast),
             "net_wtd": rnd(net_wtd,4), "receipts_mtd": rnd(rec_mtd,4), "floor": rnd(args.floor,3),
@@ -368,10 +376,13 @@ if args.publish_out:
 
 def warn(m): print(f"  ! {m}")
 print(f"✓ Rebuilt {out_path} from {xl.name}")
-print(f"  As at     {asat:%d %b %Y} "
+print(f"  As at     {asat:%d %b %Y}"
+      + (" opening " if args.asat else " ")
       + (f"(PROJECTED — actuals stop {last_actual:%d %b %Y} at ${balance_actual:,.3f}M, "
-         f"rolled forward {(asat-last_actual).days} day(s) of forecast)"
-         if projected else "(last day flagged Actual in 'Daily CF')"))
+         f"rolled forward {(cutoff-last_actual).days} day(s) of forecast)"
+         if projected else
+         (f"(= close of {cutoff:%d %b %Y}, actual)" if args.asat
+          else "(last day flagged Actual in 'Daily CF')")))
 print(f"  Balance   ${balance:,.3f}M  ·  20-day burn ${burn_day:+,.4f}M/day "
       f"(actual days only)")
 print(f"  Cover     " + (f"{cover_weeks} week(s) before the floor is breached"
